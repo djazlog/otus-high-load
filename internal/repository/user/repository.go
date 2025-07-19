@@ -189,7 +189,7 @@ func (r *repo) Search(ctx context.Context, filter *model.UserFilter) ([]*model.U
 		builder = builder.Where(sq.Like{secondNameColumn: "%" + filter.LastName + "%"})
 	}
 
-	builder = builder.Limit(10)
+	builder = builder.OrderBy(idColumn).Limit(10)
 
 	query, args, err := builder.ToSql()
 	if err != nil {
