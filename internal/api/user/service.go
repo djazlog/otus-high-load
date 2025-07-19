@@ -60,8 +60,3 @@ func (i *Implementation) PutPostUpdate(w http.ResponseWriter, r *http.Request) {
 	//TODO implement me
 	panic("implement me")
 }
-
-func (i *Implementation) GetUserSearch(w http.ResponseWriter, r *http.Request, params api.GetUserSearchParams) {
-	//TODO implement me
-	panic("implement me")
-}

@@ -31,3 +31,8 @@ type UserInfo struct {
 	// UpdatedAt Дата обновления
 	UpdatedAt *time.Time
 }
+
+type UserFilter struct {
+	LastName  string
+	FirstName string
+}

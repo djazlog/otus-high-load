@@ -20,6 +20,20 @@ func ToUserFromService(user *model.UserInfo) *api.User {
 	}
 }
 
+func ToUsersFromService(users []*model.UserInfo) []api.User {
+	var result []api.User
+	for _, u := range users {
+		if u == nil {
+			continue
+		}
+		result = append(result, *ToUserFromService(u))
+	}
+	if len(result) == 0 {
+		result = []api.User{}
+	}
+	return result
+}
+
 func ToUserInfoFromApi(info *api.PostUserRegisterJSONBody) *model.UserInfo {
 	return &model.UserInfo{
 		FirstName:  info.FirstName,
@@ -28,6 +42,13 @@ func ToUserInfoFromApi(info *api.PostUserRegisterJSONBody) *model.UserInfo {
 		Birthdate:  &info.Birthdate.Time,
 		Biography:  info.Biography,
 		Password:   info.Password,
+	}
+}
+
+func ToUserFilterFromApi(info *api.GetUserSearchParams) *model.UserFilter {
+	return &model.UserFilter{
+		FirstName: info.FirstName,
+		LastName:  info.LastName,
 	}
 }
 

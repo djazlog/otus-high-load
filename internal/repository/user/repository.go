@@ -174,7 +174,47 @@ func (r *repo) Get(ctx context.Context, id string) (*model.UserInfo, error) {
 	return converter.ToUserInfoFromRepo(&user), nil
 }
 
-func (r *repo) Search(ctx context.Context) {
-	//TODO implement me
-	panic("implement me")
+// Search поиск пользователей.
+func (r *repo) Search(ctx context.Context, filter *model.UserFilter) ([]*model.UserInfo, error) {
+	builder := sq.Select(idColumn, firstNameColumn, secondNameColumn, birthDateColumn, biographyColumn, cityColumn, createdAtColumn, updatedAtColumn).
+		PlaceholderFormat(sq.Dollar).
+		From(tableName)
+
+	// Фильтрация по firstName и secondName
+	if filter.FirstName != "" {
+		builder = builder.Where(sq.Like{firstNameColumn: "%" + filter.FirstName + "%"})
+	}
+
+	if filter.LastName != "" {
+		builder = builder.Where(sq.Like{secondNameColumn: "%" + filter.LastName + "%"})
+	}
+
+	builder = builder.Limit(10)
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	q := db.Query{
+		Name:     "user_repository.Search",
+		QueryRaw: query,
+	}
+
+	rows, err := r.db.DB().QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*model.UserInfo
+	for rows.Next() {
+		var user modelRepo.User
+		if err := rows.Scan(&user.Id, &user.FirstName, &user.SecondName, &user.Birthdate, &user.Biography, &user.City, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, converter.ToUserInfoFromRepo(&user))
+	}
+
+	return users, nil
 }
