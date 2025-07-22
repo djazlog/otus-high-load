@@ -182,14 +182,14 @@ func (r *repo) Search(ctx context.Context, filter *model.UserFilter) ([]*model.U
 
 	// Фильтрация по firstName и secondName
 	if filter.FirstName != "" {
-		builder = builder.Where(sq.Like{firstNameColumn: "%" + filter.FirstName + "%"})
+		builder = builder.Where(sq.Like{firstNameColumn: filter.FirstName + "%"})
 	}
 
 	if filter.LastName != "" {
-		builder = builder.Where(sq.Like{secondNameColumn: "%" + filter.LastName + "%"})
+		builder = builder.Where(sq.Like{secondNameColumn: filter.LastName + "%"})
 	}
 
-	builder = builder.OrderBy(idColumn).Limit(10)
+	builder = builder.OrderBy(idColumn).Limit(300)
 
 	query, args, err := builder.ToSql()
 	if err != nil {
