@@ -29,8 +29,14 @@ func (i *Implementation) PostUserRegister(w http.ResponseWriter, r *http.Request
 
 	log.Printf("inserted user with id: %d", id)
 
+	response := struct {
+		UserId string `json:"userId"`
+	}{
+		UserId: id,
+	}
+
 	// Отправляем объект userObj в формате JSON
-	if err := json.NewEncoder(w).Encode(id); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
