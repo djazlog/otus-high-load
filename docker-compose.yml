@@ -1,33 +1,53 @@
 services:
-#  api:
-#    build: .
-#    container_name: "rest-api"
-#    environment:
-#      DB_USERNAME: "${POSTGRES_USER}"
-#      DB_PASSWORD: "${POSTGRES_PASSWORD}"
-#      DB_DB: "${POSTGRES_DB}"
-#      DB_HOST: "pg-prod"
-#      DB_PORT: "5432"
-#      SSL_MODE: "disable"
-#    ports:
-#      - "8080:8080"
-#    depends_on:
-#      - pg-prod
-#    networks:
-#      - fullstack
 
-  pg-local:
+  postgres-master:
     image: postgres:17-alpine
-    env_file:
-      - .env
-    ports:
-      - ${POSTGRES_PORT:-5432}:5432
+    container_name: postgres-master
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-replicator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-replicator_password}
+      POSTGRES_DB: ${POSTGRES_DB:-otus}
     volumes:
-      - postgres_volume:/var/lib/postgresql/data
+       - ./volumes/master-data:/var/lib/postgresql/data
+       - ./docs/postgresql/init-master.sh:/docker-entrypoint-initdb.d/init-master.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - otus-net
+
+  postgres-slave:
+    image: postgres:17-alpine
+    container_name: postgres-slave
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_REPLICA_USER:-replicator}
+      POSTGRES_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-pass}
+      POSTGRES_DB: ${POSTGRES_DB:-otus}
+    volumes:
+      - ./volumes/slave-data:/var/lib/postgresql/data
+      - ./docs/postgresql/init-slave.sh:/docker-entrypoint-initdb.d/init-slave.sh
+    ports:
+      - "5433:5432"
+    networks:
+      - otus-net
+    depends_on:
+      - postgres-master
+
+
+
+  #prometheus:
+  #  image: prom/prometheus
+  #  ports:
+  #    - "9090:9090"
+  #  volumes:
+  #    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #    - prometheus_data:/prometheus
+  #  networks:
+  #    - postgres-net
 
 volumes:
-  postgres_volume:
+  prometheus_data:
 
 networks:
-  fullstack:
+  otus-net:
     driver: bridge

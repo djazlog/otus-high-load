@@ -2,18 +2,21 @@ package app
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net"
 	"net/http"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
+	"otus-project/internal/metric"
 	"otus-project/pkg/api"
 )
 
 // App структура приложения
 type App struct {
-	serviceProvider *serviceProvider
-	httpServer      *http.Server
+	serviceProvider  *serviceProvider
+	httpServer       *http.Server
+	prometheusServer *http.Server
 }
 
 // NewApp создает новый экземпляр приложения
@@ -38,12 +41,19 @@ func (a *App) Run() error {
 	return a.runHTTPServer()
 }
 
+// RunPrometheus Run запускает приложение
+func (a *App) RunPrometheus() error {
+	return a.runPrometheus()
+}
+
 // initDeps инициализирует зависимости
 func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initConfig,
+		a.initMetrics,
 		a.initServiceProvider,
 		a.initHTTPServer,
+		a.initPrometheus,
 	}
 
 	for _, f := range inits {
@@ -63,6 +73,15 @@ func (a *App) initConfig(_ context.Context) error {
 		return err
 	}
 
+	return nil
+}
+
+// initMetrics инициализирует Метрики
+func (a *App) initMetrics(ctx context.Context) error {
+	err := metric.Init(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -89,6 +108,19 @@ func (a *App) initHTTPServer(ctx context.Context) error {
 	return nil
 }
 
+// initPrometheus инициализирует Prometheus сервер
+func (a *App) initPrometheus(_ context.Context) error {
+	mux := http.NewServeMux()
+
+	mux.Handle("/metrics", promhttp.Handler())
+
+	a.prometheusServer = &http.Server{
+		Addr:    "localhost:2112",
+		Handler: mux,
+	}
+	return nil
+}
+
 // runHTTPServer запускает HTTP сервер
 func (a *App) runHTTPServer() error {
 	log.Printf("HTTP server is running on %s", a.serviceProvider.HTTPConfig().Address())
@@ -99,6 +131,19 @@ func (a *App) runHTTPServer() error {
 	}
 
 	err = a.httpServer.Serve(list)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// runPrometheus запускает Prometheus сервер
+func (a *App) runPrometheus() error {
+
+	log.Printf("Prometheus server is running on %s", "localhost:2112")
+
+	err := a.prometheusServer.ListenAndServe()
 	if err != nil {
 		return err
 	}

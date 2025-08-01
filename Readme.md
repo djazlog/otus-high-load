@@ -11,6 +11,8 @@ go run ./cmd/server/main.go
 # Импорт данных 
 ```
 go run ./cmd/importer/main.go
+или
+make import
 ```
 
 
