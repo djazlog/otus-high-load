@@ -32,7 +32,7 @@ func (i *Implementation) PostUserRegister(w http.ResponseWriter, r *http.Request
 	diffTime := time.Since(timeStart)
 	if err != nil {
 		metric.IncResponseCounter(strconv.Itoa(http.StatusInternalServerError), "PostUserRegister")
-		metric.HistogramResponseTimeObserve("error", diffTime.Seconds())
+		metric.HistogramResponseTimeObserve("PostUserRegisterError", diffTime.Seconds())
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -52,5 +52,5 @@ func (i *Implementation) PostUserRegister(w http.ResponseWriter, r *http.Request
 		return
 	}
 	metric.IncResponseCounter(strconv.Itoa(http.StatusOK), "PostUserRegister")
-	metric.HistogramResponseTimeObserve("success", diffTime.Seconds())
+	metric.HistogramResponseTimeObserve("PostUserRegister", diffTime.Seconds())
 }

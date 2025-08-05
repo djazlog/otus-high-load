@@ -21,7 +21,7 @@ func (i *Implementation) GetUserGetId(w http.ResponseWriter, r *http.Request, id
 	diffTime := time.Since(timeStart)
 	if err != nil {
 		metric.IncResponseCounter(strconv.Itoa(http.StatusNotFound), "GetUserById")
-		metric.HistogramResponseTimeObserve("error", diffTime.Seconds())
+		metric.HistogramResponseTimeObserve("GetUserByIdError", diffTime.Seconds())
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
@@ -35,4 +35,5 @@ func (i *Implementation) GetUserGetId(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 	metric.IncResponseCounter(strconv.Itoa(http.StatusOK), "GetUserById")
+	metric.HistogramResponseTimeObserve("GetUserById", diffTime.Seconds())
 }
