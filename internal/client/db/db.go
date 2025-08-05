@@ -13,6 +13,7 @@ type Handler func(ctx context.Context) error
 // Client клиент для работы с БД
 type Client interface {
 	DB() DB
+	ReplicaDB() DB
 	Close() error
 }
 

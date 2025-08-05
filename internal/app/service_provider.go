@@ -65,7 +65,7 @@ func (s *serviceProvider) HTTPConfig() config.HTTPConfig {
 // DBClient возвращает клиент БД
 func (s *serviceProvider) DBClient(ctx context.Context) db.Client {
 	if s.dbClient == nil {
-		cl, err := pg.New(ctx, s.PGConfig().DSN())
+		cl, err := pg.New(ctx, s.PGConfig().DSN(), s.PGConfig().DSNReplica())
 		if err != nil {
 			log.Fatalf("failed to create db client: %v", err)
 		}

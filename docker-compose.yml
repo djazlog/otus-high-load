@@ -33,20 +33,92 @@ services:
     depends_on:
       - postgres-master
 
+  postgres-slave-2:
+    image: postgres:17-alpine
+    container_name: postgres-slave-2
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_REPLICA_USER:-replicator}
+      POSTGRES_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-pass}
+      POSTGRES_DB: ${POSTGRES_DB:-otus}
+    volumes:
+      - ./volumes/slave-data:/var/lib/postgresql/data
+      - ./docs/postgresql/init-slave.sh:/docker-entrypoint-initdb.d/init-slave-2.sh
+    ports:
+      - "5434:5432"
+    networks:
+      - otus-net
+    depends_on:
+      - postgres-master
 
 
-  #prometheus:
-  #  image: prom/prometheus
-  #  ports:
-  #    - "9090:9090"
-  #  volumes:
-  #    - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #    - prometheus_data:/prometheus
-  #  networks:
-  #    - postgres-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: monitoring_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./docs/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docs/prometheus/config/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    ports:
+      - 9090:9090
+    expose:
+      - 9090
+    links:
+      - cadvisor:cadvisor
+      - node-exporter:node-exporter
+    networks:
+      - otus-net
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: monitoring_node_exporter
+    restart: unless-stopped
+    ports:
+      - 9100:9100
+    expose:
+      - 9100
+    networks:
+      - otus-net
+
+  cadvisor:
+    image: bitnami/cadvisor:latest
+    platform: linux/arm64
+    container_name: monitoring_cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    expose:
+      - 8080
+    ports:
+      - 8080:8080
+    networks:
+      - otus-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: monitoring_grafana
+    restart: unless-stopped
+    links:
+      - prometheus:prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=pass
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - otus-net
 
 volumes:
   prometheus_data:
+  grafana_data:
 
 networks:
   otus-net:

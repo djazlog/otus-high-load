@@ -21,6 +21,8 @@ wal_level = replica
 max_wal_senders = 10
 wal_keep_size = 1GB
 hot_standby = on
+synchronous_commit = on
+synchronous_standby_names = 'FIRST 1 (postgres_slave, postgres_slave_2)'
 EOF
 
 # Настройка pg_hba.conf через временный файл
