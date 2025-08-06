@@ -166,7 +166,7 @@ func (r *repo) Get(ctx context.Context, id string) (*model.UserInfo, error) {
 	}
 
 	var user modelRepo.User
-	err = r.db.DB().QueryRowContext(ctx, q, args...).Scan(&user.Id, &user.FirstName, &user.SecondName, &user.Birthdate, &user.Biography, &user.City, &user.CreatedAt, &user.UpdatedAt)
+	err = r.db.ReplicaDB().QueryRowContext(ctx, q, args...).Scan(&user.Id, &user.FirstName, &user.SecondName, &user.Birthdate, &user.Biography, &user.City, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (r *repo) Search(ctx context.Context, filter *model.UserFilter) ([]*model.U
 		QueryRaw: query,
 	}
 
-	rows, err := r.db.DB().QueryContext(ctx, q, args...)
+	rows, err := r.db.ReplicaDB().QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ build:
 
 
 up:
-	@docker compose up -d
+	@docker compose up -d --build
 
 install-deps:
 	GOBIN=$(LOCAL_BIN) go install github.com/pressly/goose/v3/cmd/goose@v3.14.0
@@ -23,6 +23,8 @@ migrate:
 local-migration-down:
 	$(LOCAL_BIN)/goose -dir ${MIGRATION_DIR} postgres ${PG_DSN} down -v
 
+import:
+	go run ./cmd/importer/main.go
 #gen:
 #    oapi-codegen \
 #    - generate

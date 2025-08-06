@@ -6,15 +6,18 @@ import (
 )
 
 const (
-	dsnEnvName = "PG_DSN"
+	dsnEnvName        = "PG_DSN"
+	dsnReplicaEnvName = "PG_REPLICA_DSN"
 )
 
 type PGConfig interface {
 	DSN() string
+	DSNReplica() string
 }
 
 type pgConfig struct {
-	dsn string
+	dsn        string
+	dsnReplica string
 }
 
 func NewPGConfig() (PGConfig, error) {
@@ -23,11 +26,20 @@ func NewPGConfig() (PGConfig, error) {
 		return nil, errors.New("pg dsn not found")
 	}
 
+	dsnReplica := os.Getenv(dsnReplicaEnvName)
+	if len(dsn) == 0 {
+		return nil, errors.New("pg dsn not found")
+	}
+
 	return &pgConfig{
-		dsn: dsn,
+		dsn:        dsn,
+		dsnReplica: dsnReplica,
 	}, nil
 }
 
 func (cfg *pgConfig) DSN() string {
 	return cfg.dsn
+}
+func (cfg *pgConfig) DSNReplica() string {
+	return cfg.dsnReplica
 }

@@ -10,21 +10,32 @@ import (
 
 type pgClient struct {
 	masterDBC db.DB
+	replica   db.DB
 }
 
-func New(ctx context.Context, dsn string) (db.Client, error) {
+func New(ctx context.Context, dsn string, dsnReplica string) (db.Client, error) {
 	dbc, err := pgxpool.Connect(ctx, dsn)
+	if err != nil {
+		return nil, errors.Errorf("failed to connect to db: %v", err)
+	}
+
+	dbcReplica, err := pgxpool.Connect(ctx, dsnReplica)
 	if err != nil {
 		return nil, errors.Errorf("failed to connect to db: %v", err)
 	}
 
 	return &pgClient{
 		masterDBC: &pg{dbc: dbc},
+		replica:   &pg{dbc: dbcReplica},
 	}, nil
 }
 
 func (c *pgClient) DB() db.DB {
 	return c.masterDBC
+}
+
+func (c *pgClient) ReplicaDB() db.DB {
+	return c.replica
 }
 
 func (c *pgClient) Close() error {
