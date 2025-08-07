@@ -4,15 +4,14 @@ import (
 	"context"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/gofrs/uuid"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/bcrypt"
 	"log"
 	"otus-project/internal/client/db"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
 	"otus-project/internal/repository/user/converter"
 	modelRepo "otus-project/internal/repository/user/model"
+	"otus-project/internal/utils"
 	"time"
 )
 
@@ -32,22 +31,6 @@ const (
 
 type repo struct {
 	db db.Client
-}
-
-// Секретный ключ, который используется для подписи токена
-// TODO: вынести в конфиг
-var jwtSecret = []byte("my-super-secret-key")
-
-func generateJWT(userID string) (string, error) {
-	// Создаём новый токен с алгоритмом HS256
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(), // истекает через сутки
-		"iat":     time.Now().Unix(),
-	})
-
-	// Подписываем токен
-	return token.SignedString(jwtSecret)
 }
 
 func NewRepository(db db.Client) repository.UserRepository {
@@ -78,23 +61,18 @@ func (r *repo) Login(ctx context.Context, login *model.LoginDto) (*string, error
 		return nil, err
 	}
 
-	ok := checkPasswordHash(login.Password, hashedPassword)
+	ok := utils.CheckPasswordHash(login.Password, hashedPassword)
 
 	if !ok {
 		return nil, errors.New("invalid password")
 	}
 
-	jwtNew, err := generateJWT(userId)
+	jwtNew, err := utils.GenerateToken(userId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &jwtNew, nil
-}
-
-func checkPasswordHash(password, hashedPassword string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	return err == nil
 }
 
 // Register регистрация пользователя.
@@ -107,7 +85,7 @@ func (r *repo) Register(ctx context.Context, info *model.UserInfo) (string, erro
 		return "", errors.New("password is required")
 	}
 
-	hashedPassword, err := hashPassword(*info.Password)
+	hashedPassword, err := utils.HashPassword(*info.Password)
 	if err != nil {
 		return "", err
 	}
@@ -136,15 +114,6 @@ func (r *repo) Register(ctx context.Context, info *model.UserInfo) (string, erro
 	}
 
 	return id, nil
-}
-
-func hashPassword(password string) (string, error) {
-	// Хэшируем пароль с коэффициентом сложности 10
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedPassword), nil
 }
 
 // Get получение информации о пользователе по id.

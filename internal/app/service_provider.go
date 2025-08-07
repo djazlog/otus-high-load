@@ -3,30 +3,48 @@ package app
 import (
 	"context"
 	"log"
-	"otus-project/internal/api/user"
+	"otus-project/internal/api"
+	"otus-project/internal/client/cache/redis"
+
+	redigo "github.com/gomodule/redigo/redis"
+	"otus-project/internal/client/cache"
 	"otus-project/internal/client/db"
 	"otus-project/internal/client/db/pg"
 	"otus-project/internal/client/db/transaction"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
 	"otus-project/internal/repository"
+	friendRepo "otus-project/internal/repository/friend"
+	postPgRepo "otus-project/internal/repository/post/pg"
+	postRRepo "otus-project/internal/repository/post/redis"
 	userRepository "otus-project/internal/repository/user"
 	"otus-project/internal/service"
+	friendService "otus-project/internal/service/friend"
+	postService "otus-project/internal/service/post"
 	userService "otus-project/internal/service/user"
 )
 
 type serviceProvider struct {
-	pgConfig   config.PGConfig
-	httpConfig config.HTTPConfig
+	pgConfig    config.PGConfig
+	httpConfig  config.HTTPConfig
+	redisConfig config.RedisConfig
 
 	dbClient  db.Client
 	txManager db.TxManager
 
-	userRepository repository.UserRepository
+	redisPool   *redigo.Pool
+	redisClient cache.RedisClient
 
-	userService service.UserService
+	userRepository      repository.UserRepository
+	postPgRepository    repository.PostRepository
+	postRedisRepository repository.PostRepository
+	friendRepository    repository.FriendRepository
 
-	userImpl *user.Implementation
+	userService   service.UserService
+	postService   service.PostService
+	friendService service.FriendService
+
+	apiImpl *api.Implementation
 }
 
 // NewServiceProvider создает новый сервисный провайдер
@@ -60,6 +78,44 @@ func (s *serviceProvider) HTTPConfig() config.HTTPConfig {
 	}
 
 	return s.httpConfig
+}
+
+// RedisConfig возвращает конфиг redis
+func (s *serviceProvider) RedisConfig() config.RedisConfig {
+	if s.redisConfig == nil {
+		cfg, err := config.NewRedisConfig()
+		if err != nil {
+			log.Fatalf("failed to get redis config: %s", err.Error())
+		}
+
+		s.redisConfig = cfg
+	}
+
+	return s.redisConfig
+}
+
+// RedisPool возвращает пул соединений к redis
+func (s *serviceProvider) RedisPool() *redigo.Pool {
+	if s.redisPool == nil {
+		s.redisPool = &redigo.Pool{
+			MaxIdle:     s.RedisConfig().MaxIdle(),
+			IdleTimeout: s.RedisConfig().IdleTimeout(),
+			DialContext: func(ctx context.Context) (redigo.Conn, error) {
+				return redigo.DialContext(ctx, "tcp", s.RedisConfig().Address())
+			},
+		}
+	}
+
+	return s.redisPool
+}
+
+// RedisClient возвращает клиент redis
+func (s *serviceProvider) RedisClient() cache.RedisClient {
+	if s.redisClient == nil {
+		s.redisClient = redis.NewClient(s.RedisPool(), s.RedisConfig())
+	}
+
+	return s.redisClient
 }
 
 // DBClient возвращает клиент БД
@@ -100,6 +156,33 @@ func (s *serviceProvider) UserRepository(ctx context.Context) repository.UserRep
 	return s.userRepository
 }
 
+// PostRepository возвращает репозиторий Post
+func (s *serviceProvider) PostRepository(ctx context.Context) repository.PostRepository {
+	if s.postPgRepository == nil {
+		s.postPgRepository = postPgRepo.NewRepository(s.DBClient(ctx))
+	}
+
+	return s.postPgRepository
+}
+
+// PostRedisRepository возвращает репозиторий Post
+func (s *serviceProvider) PostRedisRepository(ctx context.Context) repository.PostRepository {
+	if s.postRedisRepository == nil {
+		s.postRedisRepository = postRRepo.NewRepository(s.RedisClient())
+	}
+
+	return s.postRedisRepository
+}
+
+// FriendRepository возвращает репозиторий Post
+func (s *serviceProvider) FriendRepository(ctx context.Context) repository.FriendRepository {
+	if s.friendRepository == nil {
+		s.friendRepository = friendRepo.NewRepository(s.DBClient(ctx))
+	}
+
+	return s.friendRepository
+}
+
 // UserService возвращает сервис User
 func (s *serviceProvider) UserService(ctx context.Context) service.UserService {
 	if s.userService == nil {
@@ -112,11 +195,36 @@ func (s *serviceProvider) UserService(ctx context.Context) service.UserService {
 	return s.userService
 }
 
-// UserImpl возвращает реализацию сервиса User
-func (s *serviceProvider) UserImpl(ctx context.Context) *user.Implementation {
-	if s.userImpl == nil {
-		s.userImpl = user.NewImplementation(s.UserService(ctx))
+// PostService возвращает сервис
+func (s *serviceProvider) PostService(ctx context.Context) service.PostService {
+	if s.postService == nil {
+		s.postService = postService.NewService(
+			s.PostRepository(ctx),
+			s.PostRedisRepository(ctx),
+			s.TxManager(ctx),
+		)
 	}
 
-	return s.userImpl
+	return s.postService
+}
+
+// FriendService возвращает сервис User
+func (s *serviceProvider) FriendService(ctx context.Context) service.FriendService {
+	if s.friendService == nil {
+		s.friendService = friendService.NewService(
+			s.FriendRepository(ctx),
+			s.TxManager(ctx),
+		)
+	}
+
+	return s.friendService
+}
+
+// ApiImpl возвращает реализацию сервиса User
+func (s *serviceProvider) ApiImpl(ctx context.Context) *api.Implementation {
+	if s.apiImpl == nil {
+		s.apiImpl = api.NewImplementation(s.UserService(ctx), s.PostService(ctx), s.FriendService(ctx))
+	}
+
+	return s.apiImpl
 }

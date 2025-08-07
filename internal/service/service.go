@@ -17,3 +17,16 @@ type UserService interface {
 	// Login логинит пользователя
 	Login(ctx context.Context, login *model.LoginDto) (*string, error)
 }
+
+type PostService interface {
+	Create(ctx context.Context, info *model.Post) (*string, error)
+	Get(ctx context.Context, offset *float32, limit *float32) (*model.Post, error)
+}
+
+type FriendService interface {
+	// AddFriend добавляет друга к пользователю.
+	AddFriend(ctx context.Context, userId, friendId string) error
+
+	// DeleteFriend удаляет друга из списка пользователя.
+	DeleteFriend(ctx context.Context, userId, friendId string) error
+}

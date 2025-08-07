@@ -11,6 +11,8 @@ done
 # Создаём пользователя для репликации
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
     create role replicator with login replication password 'pass';
+    grant select on all tables in schema public to replicator;
+    grant usage on schema public to replicator;
 
 EOSQL
 
@@ -21,8 +23,8 @@ wal_level = replica
 max_wal_senders = 10
 wal_keep_size = 1GB
 hot_standby = on
-synchronous_commit = on
-synchronous_standby_names = 'FIRST 1 (postgres_slave, postgres_slave_2)'
+#synchronous_commit = on
+#synchronous_standby_names = 'FIRST 1 (postgres_slave_3)'
 EOF
 
 # Настройка pg_hba.conf через временный файл

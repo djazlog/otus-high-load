@@ -4,3 +4,5 @@ output: gen.go
 generate:
   models: true
   std-http-server: true
+  client: false
+  embedded-spec: true
