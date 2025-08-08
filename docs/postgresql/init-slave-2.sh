@@ -16,7 +16,7 @@ echo "Делаем pg_basebackup с мастера"
 PGPASSWORD=pass pg_basebackup \
   -h postgres-master -p 5432 -U replicator \
   -D /var/lib/postgresql/data \
-  -P -R -X stream -C -S postgres_slave_2
+  -P -X stream -C -S postgres_slave_2
 
 # Ждём инициализации данных PostgreSQL
 while [ ! -f /var/lib/postgresql/data/postgresql.conf ]; do
@@ -30,7 +30,6 @@ head -n -7 /var/lib/postgresql/data/postgresql.conf > /var/lib/postgresql/data/p
 mv /var/lib/postgresql/data/postgresql.conf.tmp /var/lib/postgresql/data/postgresql.conf
 # Настраиваем подключение к мастеру
 cat >> /var/lib/postgresql/data/postgresql.conf <<EOF
-
 primary_conninfo = 'host=postgres-master port=5432 user=replicator password=pass application_name=postgres_slave_2'
 hot_standby = on
 EOF
