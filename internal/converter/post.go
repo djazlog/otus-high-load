@@ -13,3 +13,12 @@ func ToPostFromService(post *model.Post) *api.Post {
 		AuthorUserId: post.AuthorUserId,
 	}
 }
+
+func ToPostsFromService(posts []*model.Post) []*api.Post {
+	result := make([]*api.Post, 0, len(posts))
+
+	for _, post := range posts {
+		result = append(result, ToPostFromService(post))
+	}
+	return result
+}

@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/google/uuid"
 	"otus-project/internal/client/cache"
@@ -13,7 +15,8 @@ import (
 )
 
 var (
-	keyList = "posts"
+	keyList  = "posts"
+	redisTTL = time.Minute * 1 // Время жизни кэша
 )
 
 type repo struct {
@@ -34,7 +37,7 @@ func (r *repo) Create(ctx context.Context, post *model.Post) (*string, error) {
 		CreatedAtNs:  time.Now().UnixNano(),
 	}
 
-	err := r.cl.HashSet(ctx, keyList, newPost)
+	err := r.cl.HashSet(ctx, keyList, newPost, redisTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -59,4 +62,57 @@ func (r *repo) Get(ctx context.Context, offset *float32, limit *float32) (*model
 	}
 
 	return converter.ToPostFromRepo(&post), nil
+}
+
+// Feed Получем посты друзей пользователя
+func (r *repo) Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error) {
+	cacheKey := fmt.Sprintf("feed:user:%s", id)
+
+	// Получаем JSON-строку из Redis
+	value, err := r.cl.Get(ctx, cacheKey)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, model.ErrorPostNotFound
+	}
+
+	// Проверяем тип значения и конвертируем его в string
+	var strValue string
+	switch v := value.(type) {
+	case string:
+		strValue = v
+	case []byte:
+		strValue = string(v)
+	default:
+		return nil, fmt.Errorf("unexpected type for cached value: %T", value)
+	}
+
+	var cachedPosts []*model.Post
+	err = json.Unmarshal([]byte(strValue), &cachedPosts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal posts from cache: %w", err)
+	}
+
+	return cachedPosts, nil
+}
+
+// CacheFeed сохраняем посты в кэш
+func (r *repo) CacheFeed(ctx context.Context, userId string, posts []*model.Post) error {
+	// Формируем ключ кэша
+	cacheKey := fmt.Sprintf("feed:user:%s", userId)
+
+	// Сериализуем посты в JSON
+	postJSON, err := json.Marshal(posts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal posts to JSON: %w", err)
+	}
+
+	// Сохраняем данные в Redis с TTL
+	err = r.cl.Set(ctx, cacheKey, postJSON, redisTTL)
+	if err != nil {
+		return fmt.Errorf("failed to set cache: %w", err)
+	}
+
+	return nil
 }

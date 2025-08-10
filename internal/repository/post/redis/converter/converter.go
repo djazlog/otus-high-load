@@ -12,3 +12,11 @@ func ToPostFromRepo(post *modelRepo.Post) *model.Post {
 		AuthorUserId: &post.AuthorUserId,
 	}
 }
+
+func ToPostsFromRepo(posts []*modelRepo.Post) []*model.Post {
+	var result []*model.Post
+	for _, p := range posts {
+		result = append(result, ToPostFromRepo(p))
+	}
+	return result
+}

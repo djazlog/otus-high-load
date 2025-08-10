@@ -25,9 +25,10 @@ func NewClient(pool *redis.Pool, config config.RedisConfig) *client {
 	}
 }
 
-func (c *client) HashSet(ctx context.Context, key string, values interface{}) error {
+func (c *client) HashSet(ctx context.Context, key string, values interface{}, ttl time.Duration) error {
 	err := c.execute(ctx, func(ctx context.Context, conn redis.Conn) error {
-		_, err := conn.Do("HSET", redis.Args{key}.AddFlat(values)...)
+		args := redis.Args{key}.Add(values).Add("EX", int64(ttl.Seconds()))
+		_, err := conn.Do("HSET", args...)
 		if err != nil {
 			return err
 		}
@@ -41,9 +42,10 @@ func (c *client) HashSet(ctx context.Context, key string, values interface{}) er
 	return nil
 }
 
-func (c *client) Set(ctx context.Context, key string, value interface{}) error {
+func (c *client) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	err := c.execute(ctx, func(ctx context.Context, conn redis.Conn) error {
-		_, err := conn.Do("SET", redis.Args{key}.Add(value)...)
+		args := redis.Args{key}.Add(value).Add("EX", int64(ttl.Seconds()))
+		_, err := conn.Do("SET", args...)
 		if err != nil {
 			return err
 		}

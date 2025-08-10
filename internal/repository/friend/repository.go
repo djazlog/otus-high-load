@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	tableName = "users"
+	tableName = "friends"
 
 	idColumn     = "user_id"
 	friendColumn = "friend_id"

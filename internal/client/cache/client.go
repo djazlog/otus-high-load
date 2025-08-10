@@ -6,8 +6,8 @@ import (
 )
 
 type RedisClient interface {
-	HashSet(ctx context.Context, key string, values interface{}) error
-	Set(ctx context.Context, key string, value interface{}) error
+	HashSet(ctx context.Context, key string, values interface{}, ttl time.Duration) error
+	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
 	HGetAll(ctx context.Context, key string) ([]interface{}, error)
 	Get(ctx context.Context, key string) (interface{}, error)
 	Expire(ctx context.Context, key string, expiration time.Duration) error

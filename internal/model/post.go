@@ -11,3 +11,7 @@ type Post struct {
 	CreatedAt    *time.Time
 	UpdatedAt    *time.Time
 }
+
+type PostList struct {
+	Posts []*Post
+}

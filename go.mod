@@ -10,7 +10,6 @@ require (
 	github.com/georgysavva/scany v1.2.3
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/gofrs/uuid v4.0.0+incompatible
-	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gomodule/redigo v1.9.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgconn v1.14.3

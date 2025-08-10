@@ -19,6 +19,7 @@ const (
 	idColumn           = "id"
 	textColumn         = "content"
 	authorUserIdColumn = "author_user_id"
+	userIdColumn       = "user_id"
 	createdAtColumn    = "created_at"
 	updatedAtColumn    = "updated_at"
 )
@@ -100,4 +101,60 @@ func (r *repo) Get(ctx context.Context, offset *float32, limit *float32) (*model
 	}
 
 	return converter.ToPostFromRepo(&post), nil
+}
+
+// Feed Получить посты друзей
+func (r *repo) Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error) {
+	if offset == nil {
+		val := float32(1)
+		offset = &val
+	}
+	if limit == nil {
+		val := float32(1000)
+		limit = &val
+	}
+	// Приводим float32 к uint64
+	off := uint64(*offset)
+	lim := uint64(*limit)
+
+	builder := sq.Select(idColumn, textColumn, authorUserIdColumn, "posts.created_at", "posts.updated_at").
+		PlaceholderFormat(sq.Dollar).
+		From(tableName).
+		Where(sq.Eq{userIdColumn: id}).
+		Join("friends f ON f.friend_id = posts.author_user_id").
+		OrderBy("posts.created_at DESC").
+		Offset(off).
+		Limit(lim)
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	q := db.Query{
+		Name:     "post_repository.Feed",
+		QueryRaw: query,
+	}
+
+	rows, err := r.db.ReplicaDB().QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*model.Post
+	for rows.Next() {
+		var p modelRepo.Post
+		if err := rows.Scan(&p.ID, &p.Text, &p.AuthorUserId, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		posts = append(posts, converter.ToPostFromRepo(&p))
+	}
+
+	return posts, nil
+}
+
+// CacheFeed Кэш постов друзей для редиса. Тут как болванка
+func (r *repo) CacheFeed(ctx context.Context, userId string, posts []*model.Post) error {
+	return nil
 }

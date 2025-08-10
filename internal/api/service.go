@@ -34,11 +34,6 @@ func (i *Implementation) PostDialogUserIdSend(w http.ResponseWriter, r *http.Req
 	panic("implement me")
 }
 
-func (i *Implementation) PutFriendDeleteUserId(w http.ResponseWriter, r *http.Request, userId api.UserId) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (i *Implementation) PostPostCreate(w http.ResponseWriter, r *http.Request) {
 	//TODO implement me
 	panic("implement me")

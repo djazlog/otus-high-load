@@ -1,15 +1,24 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
+	"net/http"
 	"otus-project/internal/model"
+	"strings"
 	"time"
 )
 
 const (
 	accessTokenSecretKey  = "kjhbdsfkgjhKJHBKJHbdfsg-sf-asdf"
-	accessTokenExpiration = 5 * time.Minute
+	accessTokenExpiration = 5 * time.Hour
+	JWTClaimsContextKey   = "jwt_claims"
+)
+
+var (
+	ErrNoAuthHeader      = errors.New("authorization header is missing")
+	ErrInvalidAuthHeader = errors.New("authorization header is malformed")
 )
 
 func GenerateToken(userId string) (string, error) {
@@ -50,4 +59,36 @@ func VerifyToken(tokenStr string) (*model.UserClaims, error) {
 	}
 
 	return claims, nil
+}
+
+func GetUserFromToken(req *http.Request) (*string, error) {
+	// Now, we need to get the JWS from the request, to match the request expectations
+	// against request contents.
+	jws, err := GetJWSFromRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("getting jws: %w", err)
+	}
+
+	// if the JWS is valid, we have a JWT, which will contain a bunch of claims.
+	cl, err := VerifyToken(jws)
+	if err != nil {
+		return nil, fmt.Errorf("token claims don't match: %w", err)
+	}
+
+	return &cl.UserId, nil
+}
+
+func GetJWSFromRequest(req *http.Request) (string, error) {
+	authHdr := req.Header.Get("Authorization")
+	// Check for the Authorization header.
+	if authHdr == "" {
+		return "", ErrNoAuthHeader
+	}
+	// We expect a header value of the form "Bearer <token>", with 1 space after
+	// Bearer, per spec.
+	prefix := "Bearer "
+	if !strings.HasPrefix(authHdr, prefix) {
+		return "", ErrInvalidAuthHeader
+	}
+	return strings.TrimPrefix(authHdr, prefix), nil
 }
