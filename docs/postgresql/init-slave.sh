@@ -9,14 +9,12 @@ until pg_isready -h postgres-master -p 5432 -U replicator; do
 done
 
 echo "Удаляем старые данные (если они есть)"
+# shellcheck disable=SC2115
 rm -rf "$PGDATA"/*
 
 
 echo "Делаем pg_basebackup с мастера"
-PGPASSWORD=pass pg_basebackup \
-  -h postgres-master -p 5432 -U replicator \
-  -D /var/lib/postgresql/data \
-  -P -R -X stream -C -S postgres_slave
+pg_basebackup -h postgres-master -p 5432 -D /var/lib/postgresql/data -U replicator -Fp -Xs -v -P --wal-method=stream
 
 # Ждём инициализации данных PostgreSQL
 while [ ! -f /var/lib/postgresql/data/postgresql.conf ]; do
@@ -37,5 +35,4 @@ EOF
 
 # Даём права postgres на данные
 chown -R postgres:postgres /var/lib/postgresql/data
-chmod -R 700 /var/lib/postgresql/data
-
+echo "Завершение инициализации"

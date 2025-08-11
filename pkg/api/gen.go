@@ -6,10 +6,17 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -710,4 +717,120 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/user/search", wrapper.GetUserSearch)
 
 	return m
+}
+
+// Base64 encoded, gzipped, json marshaled Swagger object
+var swaggerSpec = []string{
+
+	"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",
+}
+
+// GetSwagger returns the content of the embedded swagger specification file
+// or error if failed to decode
+func decodeSpec() ([]byte, error) {
+	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
+	if err != nil {
+		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(zipped))
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(zr)
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+var rawSpec = decodeSpecCached()
+
+// a naive cached of a decoded swagger spec
+func decodeSpecCached() func() ([]byte, error) {
+	data, err := decodeSpec()
+	return func() ([]byte, error) {
+		return data, err
+	}
+}
+
+// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
+func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
+	res := make(map[string]func() ([]byte, error))
+	if len(pathToFile) > 0 {
+		res[pathToFile] = rawSpec
+	}
+
+	return res
+}
+
+// GetSwagger returns the Swagger specification corresponding to the generated code
+// in this file. The external references of Swagger specification are resolved.
+// The logic of resolving external references is tightly connected to "import-mapping" feature.
+// Externally referenced files must be embedded in the corresponding golang packages.
+// Urls can be supported but this task was out of the scope.
+func GetSwagger() (swagger *openapi3.T, err error) {
+	resolvePath := PathToRawSpec("")
+
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+		pathToFile := url.String()
+		pathToFile = path.Clean(pathToFile)
+		getSpec, ok := resolvePath[pathToFile]
+		if !ok {
+			err1 := fmt.Errorf("path not found: %s", pathToFile)
+			return nil, err1
+		}
+		return getSpec()
+	}
+	var specData []byte
+	specData, err = rawSpec()
+	if err != nil {
+		return
+	}
+	swagger, err = loader.LoadFromData(specData)
+	if err != nil {
+		return
+	}
+	return
 }

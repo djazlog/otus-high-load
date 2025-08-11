@@ -93,12 +93,20 @@ func (a *App) initServiceProvider(_ context.Context) error {
 
 // initHTTPServer инициализирует HTTP сервер
 func (a *App) initHTTPServer(ctx context.Context) error {
-	server := a.serviceProvider.UserImpl(ctx)
+	server := a.serviceProvider.ApiImpl(ctx)
 
 	r := http.NewServeMux()
 
 	// get an `http.Handler` that we can use
 	h := api.HandlerFromMux(server, r)
+
+	// Create middleware for validating tokens.
+	mw, err := CreateMiddleware()
+	if err != nil {
+		log.Fatalln("error creating middleware:", err)
+	}
+
+	h = mw(h)
 
 	a.httpServer = &http.Server{
 		Handler: h,

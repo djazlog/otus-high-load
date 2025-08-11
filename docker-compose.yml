@@ -33,23 +33,23 @@ services:
     depends_on:
       - postgres-master
 
-  postgres-slave-2:
-    image: postgres:17-alpine
-    container_name: postgres-slave-2
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_REPLICA_USER:-replicator}
-      POSTGRES_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-pass}
-      POSTGRES_DB: ${POSTGRES_DB:-otus}
-    volumes:
-      - ./volumes/slave-data:/var/lib/postgresql/data
-      - ./docs/postgresql/init-slave.sh:/docker-entrypoint-initdb.d/init-slave-2.sh
-    ports:
-      - "5434:5432"
-    networks:
-      - otus-net
-    depends_on:
-      - postgres-master
+  #postgres-slave-2:
+  #  image: postgres:17-alpine
+  #  container_name: postgres-slave-2
+  #  restart: unless-stopped
+  #  environment:
+  #    POSTGRES_USER: ${POSTGRES_REPLICA_USER:-replicator}
+  #    POSTGRES_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-pass}
+  #    POSTGRES_DB: ${POSTGRES_DB:-otus}
+  #  volumes:
+  #    - ./volumes/slave-data-2:/var/lib/postgresql/data
+  #    - ./docs/postgresql/init-slave.sh:/docker-entrypoint-initdb.d/init-slave-2.sh
+  #  ports:
+  #    - "5434:5432"
+  #  networks:
+  #    - otus-net
+  #  depends_on:
+  #    - postgres-master
 
 
 
@@ -115,10 +115,20 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - otus-net
+  redis:
+    image: redis:8.2-alpine
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - otus-net
 
 volumes:
   prometheus_data:
   grafana_data:
+  redis-data:
 
 networks:
   otus-net:
