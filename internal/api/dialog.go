@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"otus-project/internal/converter"
 	"otus-project/internal/metric"
+	"otus-project/internal/utils"
 	"otus-project/pkg/api"
 	"strconv"
 	"time"
@@ -17,8 +18,9 @@ func (i *Implementation) GetDialogUserIdList(w http.ResponseWriter, r *http.Requ
 
 	// Получаем ID пользователя из контекста (аутентифицированный пользователь)
 	ctx := r.Context()
-	fromUserId, ok := ctx.Value("user_id").(*string)
-	if !ok {
+
+	fromUserId, err := utils.GetUserFromToken(r)
+	if err != nil {
 		metric.IncResponseCounter(strconv.Itoa(http.StatusUnauthorized), "GetDialogUserIdList")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -57,9 +59,9 @@ func (i *Implementation) PostDialogUserIdSend(w http.ResponseWriter, r *http.Req
 
 	// Получаем ID пользователя из контекста (аутентифицированный пользователь)
 	ctx := r.Context()
-	fromUserId, ok := ctx.Value("user_id").(*string)
-	if !ok {
-		metric.IncResponseCounter(strconv.Itoa(http.StatusUnauthorized), "PostDialogUserIdSend")
+	fromUserId, err := utils.GetUserFromToken(r)
+	if err != nil {
+		metric.IncResponseCounter(strconv.Itoa(http.StatusUnauthorized), "GetDialogUserIdList")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -80,7 +82,7 @@ func (i *Implementation) PostDialogUserIdSend(w http.ResponseWriter, r *http.Req
 	}
 
 	// Отправляем сообщение
-	err := i.dialogService.SendMessage(ctx, *fromUserId, string(userId), string(requestBody.Text))
+	err = i.dialogService.SendMessage(ctx, *fromUserId, string(userId), string(requestBody.Text))
 	diffTime := time.Since(timeStart)
 
 	if err != nil {
