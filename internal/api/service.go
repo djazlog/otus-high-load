@@ -10,28 +10,21 @@ type Implementation struct {
 	userService   service.UserService
 	postService   service.PostService
 	friendService service.FriendService
+	dialogService service.DialogService
 }
 
 func NewImplementation(
 	userService service.UserService,
 	postService service.PostService,
 	friendService service.FriendService,
+	dialogService service.DialogService,
 ) *Implementation {
 	return &Implementation{
 		userService:   userService,
 		postService:   postService,
 		friendService: friendService,
+		dialogService: dialogService,
 	}
-}
-
-func (i *Implementation) GetDialogUserIdList(w http.ResponseWriter, r *http.Request, userId api.UserId) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i *Implementation) PostDialogUserIdSend(w http.ResponseWriter, r *http.Request, userId api.UserId) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (i *Implementation) PostPostCreate(w http.ResponseWriter, r *http.Request) {

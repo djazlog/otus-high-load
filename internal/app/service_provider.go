@@ -6,7 +6,6 @@ import (
 	"otus-project/internal/api"
 	"otus-project/internal/client/cache/redis"
 
-	redigo "github.com/gomodule/redigo/redis"
 	"otus-project/internal/client/cache"
 	"otus-project/internal/client/db"
 	"otus-project/internal/client/db/pg"
@@ -14,14 +13,18 @@ import (
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
 	"otus-project/internal/repository"
+	dialogRepo "otus-project/internal/repository/dialog"
 	friendRepo "otus-project/internal/repository/friend"
 	postPgRepo "otus-project/internal/repository/post/pg"
 	postRRepo "otus-project/internal/repository/post/redis"
 	userRepository "otus-project/internal/repository/user"
 	"otus-project/internal/service"
+	dialogService "otus-project/internal/service/dialog"
 	friendService "otus-project/internal/service/friend"
 	postService "otus-project/internal/service/post"
 	userService "otus-project/internal/service/user"
+
+	redigo "github.com/gomodule/redigo/redis"
 )
 
 type serviceProvider struct {
@@ -39,10 +42,12 @@ type serviceProvider struct {
 	postPgRepository    repository.PostRepository
 	postRedisRepository repository.PostRepository
 	friendRepository    repository.FriendRepository
+	dialogRepository    repository.DialogRepository
 
 	userService   service.UserService
 	postService   service.PostService
 	friendService service.FriendService
+	dialogService service.DialogService
 
 	apiImpl *api.Implementation
 }
@@ -183,6 +188,15 @@ func (s *serviceProvider) FriendRepository(ctx context.Context) repository.Frien
 	return s.friendRepository
 }
 
+// DialogRepository возвращает репозиторий диалогов
+func (s *serviceProvider) DialogRepository(ctx context.Context) repository.DialogRepository {
+	if s.dialogRepository == nil {
+		s.dialogRepository = dialogRepo.NewRepository(s.DBClient(ctx))
+	}
+
+	return s.dialogRepository
+}
+
 // UserService возвращает сервис User
 func (s *serviceProvider) UserService(ctx context.Context) service.UserService {
 	if s.userService == nil {
@@ -220,10 +234,19 @@ func (s *serviceProvider) FriendService(ctx context.Context) service.FriendServi
 	return s.friendService
 }
 
+// DialogService возвращает сервис диалогов
+func (s *serviceProvider) DialogService(ctx context.Context) service.DialogService {
+	if s.dialogService == nil {
+		s.dialogService = dialogService.NewImplementation(s.DialogRepository(ctx))
+	}
+
+	return s.dialogService
+}
+
 // ApiImpl возвращает реализацию сервиса User
 func (s *serviceProvider) ApiImpl(ctx context.Context) *api.Implementation {
 	if s.apiImpl == nil {
-		s.apiImpl = api.NewImplementation(s.UserService(ctx), s.PostService(ctx), s.FriendService(ctx))
+		s.apiImpl = api.NewImplementation(s.UserService(ctx), s.PostService(ctx), s.FriendService(ctx), s.DialogService(ctx))
 	}
 
 	return s.apiImpl
