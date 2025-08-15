@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	redigo "github.com/gomodule/redigo/redis"
-	"github.com/google/uuid"
 	"otus-project/internal/client/cache"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
 	"otus-project/internal/repository/post/redis/converter"
 	modelRepo "otus-project/internal/repository/post/redis/model"
 	"time"
+
+	redigo "github.com/gomodule/redigo/redis"
+	"github.com/google/uuid"
 )
 
 var (
@@ -115,4 +116,25 @@ func (r *repo) CacheFeed(ctx context.Context, userId string, posts []*model.Post
 	}
 
 	return nil
+}
+
+// GetByID получает пост по ID
+func (r *repo) GetByID(ctx context.Context, id string) (*model.Post, error) {
+	// В Redis репозитории GetByID не реализован, так как это кэш
+	// Возвращаем ошибку, чтобы использовать PostgreSQL
+	return nil, fmt.Errorf("GetByID not implemented in Redis repository")
+}
+
+// Update обновляет пост
+func (r *repo) Update(ctx context.Context, id string, text string) error {
+	// В Redis репозитории Update не реализован, так как это кэш
+	// Возвращаем ошибку, чтобы использовать PostgreSQL
+	return fmt.Errorf("Update not implemented in Redis repository")
+}
+
+// Delete удаляет пост
+func (r *repo) Delete(ctx context.Context, id string) error {
+	// В Redis репозитории Delete не реализован, так как это кэш
+	// Возвращаем ошибку, чтобы использовать PostgreSQL
+	return fmt.Errorf("Delete not implemented in Redis repository")
 }

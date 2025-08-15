@@ -1,9 +1,7 @@
 package api
 
 import (
-	"net/http"
 	"otus-project/internal/service"
-	"otus-project/pkg/api"
 )
 
 type Implementation struct {
@@ -25,24 +23,4 @@ func NewImplementation(
 		friendService: friendService,
 		dialogService: dialogService,
 	}
-}
-
-func (i *Implementation) PostPostCreate(w http.ResponseWriter, r *http.Request) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i *Implementation) PutPostDeleteId(w http.ResponseWriter, r *http.Request, id api.PostId) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i *Implementation) GetPostGetId(w http.ResponseWriter, r *http.Request, id api.PostId) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i *Implementation) PutPostUpdate(w http.ResponseWriter, r *http.Request) {
-	//TODO implement me
-	panic("implement me")
 }

@@ -17,6 +17,9 @@ type PostRepository interface {
 	Get(ctx context.Context, offset *float32, limit *float32) (*model.Post, error)
 	Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error)
 	CacheFeed(ctx context.Context, userId string, posts []*model.Post) error
+	GetByID(ctx context.Context, id string) (*model.Post, error)
+	Update(ctx context.Context, id string, text string) error
+	Delete(ctx context.Context, id string) error
 }
 
 type FriendRepository interface {
