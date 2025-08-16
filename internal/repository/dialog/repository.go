@@ -7,9 +7,11 @@ import (
 	"otus-project/internal/repository"
 	"otus-project/internal/repository/dialog/converter"
 	repoModel "otus-project/internal/repository/dialog/model"
+	"otus-project/internal/utils"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -21,6 +23,7 @@ const (
 	toUserIdColumn   = "to_user_id"
 	textColumn       = "text"
 	createdAtColumn  = "created_at"
+	dialogKeyColumn  = "dialog_key"
 )
 
 type repo struct {
@@ -33,10 +36,12 @@ func NewRepository(db db.Client) repository.DialogRepository {
 
 // SendMessage сохраняет сообщение в диалоге
 func (r *repo) SendMessage(ctx context.Context, fromUserId, toUserId, text string) error {
+	key := utils.GenerateDialogKey(fromUserId, toUserId)
+
 	builder := sq.Insert(tableName).
 		PlaceholderFormat(sq.Dollar).
-		Columns(fromUserIdColumn, toUserIdColumn, textColumn, createdAtColumn).
-		Values(fromUserId, toUserId, text, time.Now())
+		Columns(idColumn, fromUserIdColumn, toUserIdColumn, textColumn, createdAtColumn, dialogKeyColumn).
+		Values(uuid.New().String(), fromUserId, toUserId, text, time.Now(), key)
 
 	query, args, err := builder.ToSql()
 	if err != nil {
@@ -58,22 +63,13 @@ func (r *repo) SendMessage(ctx context.Context, fromUserId, toUserId, text strin
 
 // GetDialogList возвращает список сообщений диалога между двумя пользователями
 func (r *repo) GetDialogList(ctx context.Context, userId1, userId2 string) ([]*model.DialogMessage, error) {
-	// Получаем сообщения в обоих направлениях (от userId1 к userId2 и наоборот)
+	// Для Citus: используем равенство по dialog_key для таргетинга шардирования (Эффект Леди Гаги)
+	key := utils.GenerateDialogKey(userId1, userId2)
+
 	builder := sq.Select(idColumn, fromUserIdColumn, toUserIdColumn, textColumn, createdAtColumn).
 		PlaceholderFormat(sq.Dollar).
 		From(tableName).
-		Where(
-			sq.Or{
-				sq.And{
-					sq.Eq{fromUserIdColumn: userId1},
-					sq.Eq{toUserIdColumn: userId2},
-				},
-				sq.And{
-					sq.Eq{fromUserIdColumn: userId2},
-					sq.Eq{toUserIdColumn: userId1},
-				},
-			},
-		).
+		Where(sq.Eq{dialogKeyColumn: key}).
 		OrderBy(createdAtColumn + " ASC")
 
 	query, args, err := builder.ToSql()

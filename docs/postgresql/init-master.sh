@@ -10,6 +10,10 @@ done
 
 # Создаём пользователя для репликации
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+    -- Включаем расширение Citus
+    CREATE EXTENSION IF NOT EXISTS citus;
+
+
     create role replicator with REPLICATION LOGIN ENCRYPTED password 'pass';
     CREATE USER readonly WITH PASSWORD 'pass';
     GRANT CONNECT ON DATABASE otus TO readonly;

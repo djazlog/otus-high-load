@@ -4,7 +4,7 @@ set -e
 echo "Начало инициализации"
 
 # Ожидаем, пока мастер станет доступен
-until pg_isready -h postgres-master -p 5432 -U replicator; do
+until pg_isready -h otus-project_master -p 5432 -U replicator; do
   sleep 1
 done
 
@@ -14,7 +14,7 @@ rm -rf "$PGDATA"/*
 
 
 echo "Делаем pg_basebackup с мастера"
-pg_basebackup -h postgres-master -p 5432 -D /var/lib/postgresql/data -U replicator -Fp -Xs -v -P --wal-method=stream
+pg_basebackup -h otus-project_master -p 5432 -D /var/lib/postgresql/data -U replicator -Fp -Xs -v -P --wal-method=stream
 
 # Ждём инициализации данных PostgreSQL
 while [ ! -f /var/lib/postgresql/data/postgresql.conf ]; do
@@ -29,8 +29,10 @@ mv /var/lib/postgresql/data/postgresql.conf.tmp /var/lib/postgresql/data/postgre
 # Настраиваем подключение к мастеру
 cat >> /var/lib/postgresql/data/postgresql.conf <<EOF
 
-primary_conninfo = 'host=postgres-master port=5432 user=replicator password=pass application_name=postgres_slave'
+primary_conninfo = 'host=otus-project_master port=5432 user=replicator password=pass application_name=postgres_slave'
 hot_standby = on
+primary_slot_name = 'postgres_slave'
+recovery_target_timeline = 'latest'
 EOF
 
 # Даём права postgres на данные

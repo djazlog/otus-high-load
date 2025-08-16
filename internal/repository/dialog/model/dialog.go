@@ -5,7 +5,7 @@ import "time"
 // DialogMessage представляет сообщение в диалоге для репозитория
 type DialogMessage struct {
 	// ID уникальный идентификатор сообщения
-	ID int64
+	ID string
 	// FromUserID идентификатор пользователя отправителя
 	FromUserID string
 	// ToUserID идентификатор пользователя получателя
