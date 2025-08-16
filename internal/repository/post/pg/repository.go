@@ -2,15 +2,16 @@ package pg
 
 import (
 	"context"
-	sq "github.com/Masterminds/squirrel"
-	"github.com/gofrs/uuid"
-	"github.com/jackc/pgx/v4"
-	"github.com/pkg/errors"
 	"otus-project/internal/client/db"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
 	"otus-project/internal/repository/post/pg/converter"
 	modelRepo "otus-project/internal/repository/post/pg/model"
+
+	sq "github.com/Masterminds/squirrel"
+	"github.com/gofrs/uuid"
+	"github.com/jackc/pgx/v4"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -156,5 +157,95 @@ func (r *repo) Feed(ctx context.Context, id string, offset *float32, limit *floa
 
 // CacheFeed Кэш постов друзей для редиса. Тут как болванка
 func (r *repo) CacheFeed(ctx context.Context, userId string, posts []*model.Post) error {
+	return nil
+}
+
+// GetByID получает пост по ID
+func (r *repo) GetByID(ctx context.Context, id string) (*model.Post, error) {
+	builder := sq.Select(idColumn, textColumn, authorUserIdColumn, createdAtColumn, updatedAtColumn).
+		PlaceholderFormat(sq.Dollar).
+		From(tableName).
+		Where(sq.Eq{idColumn: id}).
+		Limit(1)
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	q := db.Query{
+		Name:     "post_repository.GetByID",
+		QueryRaw: query,
+	}
+
+	var post modelRepo.Post
+	err = r.db.DB().QueryRowContext(ctx, q, args...).Scan(&post.ID, &post.Text, &post.AuthorUserId, &post.CreatedAt, &post.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, model.ErrorPostNotFound
+		}
+		return nil, err
+	}
+
+	return converter.ToPostFromRepo(&post), nil
+}
+
+// Update обновляет пост
+func (r *repo) Update(ctx context.Context, id string, text string) error {
+	builder := sq.Update(tableName).
+		PlaceholderFormat(sq.Dollar).
+		Set(textColumn, text).
+		Set(updatedAtColumn, "NOW()").
+		Where(sq.Eq{idColumn: id})
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return err
+	}
+
+	q := db.Query{
+		Name:     "post_repository.Update",
+		QueryRaw: query,
+	}
+
+	result, err := r.db.DB().ExecContext(ctx, q, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return model.ErrorPostNotFound
+	}
+
+	return nil
+}
+
+// Delete удаляет пост
+func (r *repo) Delete(ctx context.Context, id string) error {
+	builder := sq.Delete(tableName).
+		PlaceholderFormat(sq.Dollar).
+		Where(sq.Eq{idColumn: id})
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return err
+	}
+
+	q := db.Query{
+		Name:     "post_repository.Delete",
+		QueryRaw: query,
+	}
+
+	result, err := r.db.DB().ExecContext(ctx, q, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return model.ErrorPostNotFound
+	}
+
 	return nil
 }

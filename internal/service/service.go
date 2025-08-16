@@ -21,6 +21,9 @@ type UserService interface {
 type PostService interface {
 	Create(ctx context.Context, info *model.Post) (*string, error)
 	Get(ctx context.Context, offset *float32, limit *float32) (*model.Post, error)
+	GetByID(ctx context.Context, id string) (*model.Post, error)
+	Update(ctx context.Context, id string, text string) error
+	Delete(ctx context.Context, id string) error
 	Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error)
 }
 
@@ -30,4 +33,11 @@ type FriendService interface {
 
 	// DeleteFriend удаляет друга из списка пользователя.
 	DeleteFriend(ctx context.Context, userId, friendId string) error
+}
+
+type DialogService interface {
+	// SendMessage отправляет сообщение в диалог
+	SendMessage(ctx context.Context, fromUserId, toUserId string, text string) error
+	// GetDialogList возвращает список сообщений диалога между двумя пользователями
+	GetDialogList(ctx context.Context, userId1, userId2 string) ([]*model.DialogMessage, error)
 }

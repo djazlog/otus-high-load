@@ -17,6 +17,9 @@ type PostRepository interface {
 	Get(ctx context.Context, offset *float32, limit *float32) (*model.Post, error)
 	Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error)
 	CacheFeed(ctx context.Context, userId string, posts []*model.Post) error
+	GetByID(ctx context.Context, id string) (*model.Post, error)
+	Update(ctx context.Context, id string, text string) error
+	Delete(ctx context.Context, id string) error
 }
 
 type FriendRepository interface {
@@ -28,4 +31,11 @@ type FriendRepository interface {
 
 	// GetFriends возвращает список друзей пользователя.
 	GetFriends(ctx context.Context, userId string) ([]string, error)
+}
+
+type DialogRepository interface {
+	// SendMessage сохраняет сообщение в диалоге
+	SendMessage(ctx context.Context, fromUserId, toUserId, text string) error
+	// GetDialogList возвращает список сообщений диалога между двумя пользователями
+	GetDialogList(ctx context.Context, userId1, userId2 string) ([]*model.DialogMessage, error)
 }

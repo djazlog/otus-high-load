@@ -37,7 +37,7 @@ func (i *Implementation) PostUserRegister(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	log.Printf("inserted user with id: %d", id)
+	log.Printf("inserted user with id: %s", id)
 
 	response := struct {
 		UserId string `json:"userId"`

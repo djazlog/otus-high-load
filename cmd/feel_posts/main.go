@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
-	"github.com/google/uuid"
 	"log"
 	"os"
 	"otus-project/internal/config"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
@@ -75,7 +76,7 @@ func main() {
 				break
 			}
 			//TODO: Убрать, сейчас для теста на одного опльзователя сохраняем
-			userID = "d77da351-b954-4f72-b51b-d94e97c13fc9"
+			userID = "f489f162-9ad0-4e0f-abe5-17003a5cf68f"
 
 			content := posts[0]
 			posts = posts[1:]
