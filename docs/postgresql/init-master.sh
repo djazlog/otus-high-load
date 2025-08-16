@@ -25,7 +25,7 @@ EOSQL
 # Добавляем настройки в postgresql.conf
 cat >> /var/lib/postgresql/data/postgresql.conf <<EOF
 ssl = off
-wal_level = replica
+wal_level = logical
 max_wal_senders = 10
 wal_keep_size = 1GB
 hot_standby = on

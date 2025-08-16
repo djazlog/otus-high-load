@@ -9,11 +9,15 @@ build:
 
 # Запуск сервиса
 up:
-	@docker compose up -d --build --scale worker=2
+	@docker compose up -d --build --scale worker=7
 
 # Запуск сервиса для разработки
 run:
 	go run ./cmd/server/main.go
+
+# Запуск ребалансировки citus
+rebalance:
+	go run ./cmd/rebalance/main.go
 
 # Установка зависимостей
 install-deps:
