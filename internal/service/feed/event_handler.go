@@ -2,17 +2,16 @@ package feed
 
 import (
 	"context"
-	"otus-project/internal/interfaces"
 	"otus-project/internal/model"
 )
 
 // EventHandler обработчик событий для Feed сервиса
 type EventHandler struct {
-	feedService interfaces.FeedService
+	feedService Service
 }
 
 // NewEventHandler создает новый обработчик событий
-func NewEventHandler(feedService interfaces.FeedService) *EventHandler {
+func NewEventHandler(feedService Service) *EventHandler {
 	return &EventHandler{
 		feedService: feedService,
 	}

@@ -8,7 +8,7 @@ import (
 	internalApi "otus-project/internal/api"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
-	"otus-project/internal/interfaces"
+
 	"otus-project/internal/metric"
 	"otus-project/internal/model"
 	feedHandler "otus-project/internal/service/feed"
@@ -24,7 +24,7 @@ type App struct {
 	httpServer       *http.Server
 	prometheusServer *http.Server
 	websocketHandler *internalApi.WebSocketHandler
-	feedWorker       interfaces.FeedWorker
+	feedWorker       feedHandler.Worker
 }
 
 // NewApp создает новый экземпляр приложения

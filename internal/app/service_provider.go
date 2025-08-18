@@ -10,12 +10,13 @@ import (
 	"otus-project/internal/client/db"
 	"otus-project/internal/client/db/pg"
 	"otus-project/internal/client/db/transaction"
+	"otus-project/internal/client/queue"
 	"otus-project/internal/client/queue/rabbitmq"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
-	"otus-project/internal/interfaces"
 	"otus-project/internal/repository"
 	dialogRepo "otus-project/internal/repository/dialog"
+	feedRepo "otus-project/internal/repository/feed"
 	feedPgRepo "otus-project/internal/repository/feed/pg"
 	friendRepo "otus-project/internal/repository/friend"
 	postPgRepo "otus-project/internal/repository/post/pg"
@@ -54,10 +55,10 @@ type serviceProvider struct {
 	postService      service.PostService
 	friendService    service.FriendService
 	dialogService    service.DialogService
-	websocketService interfaces.WebSocketService
-	feedService      interfaces.FeedService
-	queueClient      interfaces.QueueClient
-	eventBus         interfaces.EventBus
+	websocketService websocketService.WebSocketService
+	feedService      feedService.Service
+	queueClient      queue.Client
+	eventBus         eventBusService.EventBus
 
 	apiImpl *api.Implementation
 }
@@ -255,7 +256,7 @@ func (s *serviceProvider) DialogService(ctx context.Context) service.DialogServi
 }
 
 // WebSocketService возвращает WebSocket сервис
-func (s *serviceProvider) WebSocketService() interfaces.WebSocketService {
+func (s *serviceProvider) WebSocketService() websocketService.WebSocketService {
 	if s.websocketService == nil {
 		s.websocketService = websocketService.NewService()
 	}
@@ -264,7 +265,7 @@ func (s *serviceProvider) WebSocketService() interfaces.WebSocketService {
 }
 
 // QueueClient возвращает клиент очереди сообщений
-func (s *serviceProvider) QueueClient() interfaces.QueueClient {
+func (s *serviceProvider) QueueClient() queue.Client {
 	if s.queueClient == nil {
 		cfg, err := config.NewRabbitMQConfig()
 		if err != nil {
@@ -284,12 +285,12 @@ func (s *serviceProvider) QueueClient() interfaces.QueueClient {
 }
 
 // FeedRepository возвращает репозиторий материализованной ленты
-func (s *serviceProvider) FeedRepository(ctx context.Context) interfaces.FeedRepository {
+func (s *serviceProvider) FeedRepository(ctx context.Context) feedRepo.Repository {
 	return feedPgRepo.NewRepository(s.DBClient(ctx))
 }
 
 // EventBus возвращает Event Bus
-func (s *serviceProvider) EventBus() interfaces.EventBus {
+func (s *serviceProvider) EventBus() eventBusService.EventBus {
 	if s.eventBus == nil {
 		s.eventBus = eventBusService.NewService()
 	}
@@ -298,7 +299,7 @@ func (s *serviceProvider) EventBus() interfaces.EventBus {
 }
 
 // FeedService возвращает сервис отложенной материализации ленты
-func (s *serviceProvider) FeedService(ctx context.Context) interfaces.FeedService {
+func (s *serviceProvider) FeedService(ctx context.Context) feedService.Service {
 	if s.feedService == nil {
 		s.feedService = feedService.NewService(s.FeedRepository(ctx), s.QueueClient())
 	}

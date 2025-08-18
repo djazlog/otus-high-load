@@ -2,17 +2,16 @@ package websocket
 
 import (
 	"context"
-	"otus-project/internal/interfaces"
 	"otus-project/internal/model"
 )
 
 // EventHandler обработчик событий для WebSocket сервиса
 type EventHandler struct {
-	websocketService interfaces.WebSocketService
+	websocketService WebSocketService
 }
 
 // NewEventHandler создает новый обработчик событий
-func NewEventHandler(websocketService interfaces.WebSocketService) *EventHandler {
+func NewEventHandler(websocketService WebSocketService) *EventHandler {
 	return &EventHandler{
 		websocketService: websocketService,
 	}

@@ -4,8 +4,6 @@ import (
 	"context"
 	"log"
 	"sync"
-
-	"otus-project/internal/interfaces"
 )
 
 type service struct {
@@ -16,7 +14,7 @@ type service struct {
 }
 
 // NewService создает новый Event Bus
-func NewService() interfaces.EventBus {
+func NewService() EventBus {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &service{
 		handlers: make(map[string][]func(context.Context, interface{}) error),

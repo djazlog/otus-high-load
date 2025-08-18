@@ -2,16 +2,16 @@ package app
 
 import (
 	"context"
-	"otus-project/internal/interfaces"
+	"otus-project/internal/service/feed"
 )
 
 // FeedWorkerAdapter адаптер для преобразования FeedService в FeedWorker
 type FeedWorkerAdapter struct {
-	feedService interfaces.FeedService
+	feedService feed.Service
 }
 
 // NewFeedWorkerAdapter создает новый адаптер
-func NewFeedWorkerAdapter(feedService interfaces.FeedService) interfaces.FeedWorker {
+func NewFeedWorkerAdapter(feedService feed.Service) feed.Worker {
 	return &FeedWorkerAdapter{
 		feedService: feedService,
 	}

@@ -5,11 +5,6 @@ import (
 	"otus-project/internal/model"
 )
 
-type FeedWorker interface {
-	StartWorker(ctx context.Context) error
-	StopWorker(ctx context.Context) error
-}
-
 // Client интерфейс для работы с очередью сообщений
 type Client interface {
 	// PublishFeedEvent публикует событие ленты для конкретного пользователя

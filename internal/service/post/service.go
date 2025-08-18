@@ -3,17 +3,17 @@ package post
 import (
 	"context"
 	"otus-project/internal/client/db"
-	"otus-project/internal/interfaces"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
 	"otus-project/internal/service"
+	eventBusService "otus-project/internal/service/event_bus"
 )
 
 type serv struct {
 	postPgRepository repository.PostRepository
 	postRRepository  repository.PostRepository
 	txManager        db.TxManager
-	eventBus         interfaces.EventBus
+	eventBus         eventBusService.EventBus
 }
 
 // PostService интерфейс сервиса постов
@@ -30,7 +30,7 @@ func NewService(
 	postPgRepository repository.PostRepository,
 	postRRepository repository.PostRepository,
 	txManager db.TxManager,
-	eventBus interfaces.EventBus,
+	eventBus eventBusService.EventBus,
 ) service.PostService {
 	return &serv{
 		postPgRepository: postPgRepository,
