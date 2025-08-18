@@ -2,14 +2,16 @@ package app
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net"
 	"net/http"
+	internalApi "otus-project/internal/api"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
 	"otus-project/internal/metric"
 	"otus-project/pkg/api"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // App структура приложения
@@ -17,6 +19,7 @@ type App struct {
 	serviceProvider  *serviceProvider
 	httpServer       *http.Server
 	prometheusServer *http.Server
+	websocketHandler *internalApi.WebSocketHandler
 }
 
 // NewApp создает новый экземпляр приложения
@@ -34,6 +37,10 @@ func NewApp(ctx context.Context) (*App, error) {
 // Run запускает приложение
 func (a *App) Run() error {
 	defer func() {
+		// Останавливаем WebSocket сервис
+		if a.serviceProvider != nil {
+			a.serviceProvider.WebSocketService().StopHub(context.Background())
+		}
 		closer.CloseAll()
 		closer.Wait()
 	}()
@@ -52,6 +59,7 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initConfig,
 		a.initMetrics,
 		a.initServiceProvider,
+		a.initWebSocket,
 		a.initHTTPServer,
 		a.initPrometheus,
 	}
@@ -91,6 +99,19 @@ func (a *App) initServiceProvider(_ context.Context) error {
 	return nil
 }
 
+// initWebSocket инициализирует WebSocket сервис и обработчик
+func (a *App) initWebSocket(ctx context.Context) error {
+	// Запускаем WebSocket хаб
+	err := a.serviceProvider.WebSocketService().StartHub(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Создаем WebSocket обработчик
+	a.websocketHandler = internalApi.NewWebSocketHandler(a.serviceProvider.WebSocketService().GetHub())
+	return nil
+}
+
 // initHTTPServer инициализирует HTTP сервер
 func (a *App) initHTTPServer(ctx context.Context) error {
 	server := a.serviceProvider.ApiImpl(ctx)
@@ -108,8 +129,17 @@ func (a *App) initHTTPServer(ctx context.Context) error {
 
 	h = mw(h)
 
+	// Создаем новый мультиплексор для объединения REST API и WebSocket
+	mux := http.NewServeMux()
+
+	// Добавляем REST API маршруты
+	mux.Handle("/", h)
+
+	// Добавляем WebSocket маршрут для канала /post/feed/posted
+	mux.HandleFunc("/post/feed/posted", a.websocketHandler.HandleWebSocket)
+
 	a.httpServer = &http.Server{
-		Handler: h,
+		Handler: mux,
 		Addr:    a.serviceProvider.HTTPConfig().Address(),
 	}
 

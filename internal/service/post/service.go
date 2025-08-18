@@ -12,6 +12,9 @@ type serv struct {
 	postPgRepository repository.PostRepository
 	postRRepository  repository.PostRepository
 	txManager        db.TxManager
+	websocketService interface {
+		BroadcastPost(ctx context.Context, post *model.WebSocketPost) error
+	}
 }
 
 // PostService интерфейс сервиса постов
@@ -28,11 +31,15 @@ func NewService(
 	postPgRepository repository.PostRepository,
 	postRRepository repository.PostRepository,
 	txManager db.TxManager,
+	websocketService interface {
+		BroadcastPost(ctx context.Context, post *model.WebSocketPost) error
+	},
 ) service.PostService {
 	return &serv{
 		postPgRepository: postPgRepository,
 		postRRepository:  postRRepository,
 		txManager:        txManager,
+		websocketService: websocketService,
 	}
 }
 

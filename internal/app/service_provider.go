@@ -23,6 +23,7 @@ import (
 	friendService "otus-project/internal/service/friend"
 	postService "otus-project/internal/service/post"
 	userService "otus-project/internal/service/user"
+	websocketService "otus-project/internal/service/websocket"
 
 	redigo "github.com/gomodule/redigo/redis"
 )
@@ -44,10 +45,11 @@ type serviceProvider struct {
 	friendRepository    repository.FriendRepository
 	dialogRepository    repository.DialogRepository
 
-	userService   service.UserService
-	postService   service.PostService
-	friendService service.FriendService
-	dialogService service.DialogService
+	userService      service.UserService
+	postService      service.PostService
+	friendService    service.FriendService
+	dialogService    service.DialogService
+	websocketService websocketService.WebSocketService
 
 	apiImpl *api.Implementation
 }
@@ -216,6 +218,7 @@ func (s *serviceProvider) PostService(ctx context.Context) service.PostService {
 			s.PostRepository(ctx),
 			s.PostRedisRepository(ctx),
 			s.TxManager(ctx),
+			s.WebSocketService(),
 		)
 	}
 
@@ -241,6 +244,15 @@ func (s *serviceProvider) DialogService(ctx context.Context) service.DialogServi
 	}
 
 	return s.dialogService
+}
+
+// WebSocketService возвращает WebSocket сервис
+func (s *serviceProvider) WebSocketService() websocketService.WebSocketService {
+	if s.websocketService == nil {
+		s.websocketService = websocketService.NewService()
+	}
+
+	return s.websocketService
 }
 
 // ApiImpl возвращает реализацию сервиса User

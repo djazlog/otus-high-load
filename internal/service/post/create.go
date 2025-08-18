@@ -21,5 +21,22 @@ func (s *serv) Create(ctx context.Context, info *model.Post) (*string, error) {
 		return nil, err
 	}
 
+	// Отправляем уведомление через WebSocket
+	if s.websocketService != nil && id != nil && info.Text != nil && info.AuthorUserId != nil {
+		wsPost := &model.WebSocketPost{
+			PostID:       *id,
+			PostText:     *info.Text,
+			AuthorUserID: *info.AuthorUserId,
+		}
+
+		// Отправляем асинхронно, чтобы не блокировать создание поста
+		go func() {
+			if err := s.websocketService.BroadcastPost(context.Background(), wsPost); err != nil {
+				// Логируем ошибку, но не прерываем создание поста
+				// В продакшене здесь можно добавить метрики и алерты
+			}
+		}()
+	}
+
 	return id, nil
 }

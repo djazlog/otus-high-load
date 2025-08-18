@@ -40,6 +40,19 @@ import:
 # Генерация постов для тестирования
 posts:
 	go run ./cmd/feel_posts/main.go
+
+# WebSocket тестирование
+websocket-test:
+	@echo "Для тестирования WebSocket используйте:"
+	@echo "1. HTML клиент: открыть docs/websocket_test.html в браузере"
+	@echo "2. Go клиент: go run cmd/websocket_client/main.go ws://localhost:8080 <jwt_token>"
+	@echo ""
+	@echo "Сначала получите JWT токен через REST API /login"
+
+# Сборка WebSocket клиента
+build-websocket-client:
+	go build -o bin/websocket_client cmd/websocket_client/main.go
+
 #gen:
 #    oapi-codegen \
 #    - generate

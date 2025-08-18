@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .connecting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .message {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .post-message {
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #messages {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Test Client</h1>
+    
+    <div class="container">
+        <h3>Подключение</h3>
+        <div>
+            <label for="serverUrl">Server URL:</label>
+            <input type="text" id="serverUrl" value="ws://localhost:8080" style="width: 300px;">
+        </div>
+        <div>
+            <label for="token">JWT Token:</label>
+            <input type="text" id="token" placeholder="Введите ваш JWT токен" style="width: 400px;">
+        </div>
+        <div>
+            <button id="connectBtn" onclick="connect()">Подключиться</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Отключиться</button>
+        </div>
+        <div id="status" class="status disconnected">Отключен</div>
+    </div>
+
+    <div class="container">
+        <h3>Сообщения</h3>
+        <button onclick="clearMessages()">Очистить сообщения</button>
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+
+        function updateStatus(message, className) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + className;
+        }
+
+        function addMessage(message, isPost = false) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message' + (isPost ? ' post-message' : '');
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            messageCount++;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const token = document.getElementById('token').value;
+
+            if (!token) {
+                alert('Пожалуйста, введите JWT токен');
+                return;
+            }
+
+            updateStatus('Подключение...', 'connecting');
+
+            try {
+                // Создаем WebSocket соединение
+                ws = new WebSocket(serverUrl + '/post/feed/posted');
+
+                ws.onopen = function(event) {
+                    updateStatus('Подключен', 'connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    addMessage('WebSocket соединение установлено');
+                    
+                    // Отправляем токен в заголовке (если поддерживается)
+                    // В реальном приложении токен должен передаваться через URL параметры
+                    addMessage('Токен авторизации: ' + token.substring(0, 20) + '...');
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        addMessage('Получено сообщение: ' + JSON.stringify(message, null, 2));
+                        
+                        if (message.type === 'post') {
+                            const post = message.payload;
+                            addMessage(`Новый пост! ID: ${post.postId}, Автор: ${post.author_user_id}, Текст: ${post.postText}`, true);
+                        }
+                    } catch (e) {
+                        addMessage('Ошибка парсинга сообщения: ' + event.data);
+                    }
+                };
+
+                ws.onclose = function(event) {
+                    updateStatus('Отключен', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    
+                    if (event.wasClean) {
+                        addMessage('Соединение закрыто корректно');
+                    } else {
+                        addMessage('Соединение прервано');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    updateStatus('Ошибка соединения', 'disconnected');
+                    addMessage('Ошибка WebSocket: ' + error);
+                };
+
+            } catch (error) {
+                updateStatus('Ошибка подключения', 'disconnected');
+                addMessage('Ошибка: ' + error.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+            messageCount = 0;
+        }
+
+        // Обработка нажатия Enter в полях ввода
+        document.getElementById('serverUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        document.getElementById('token').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Обработка закрытия страницы
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
