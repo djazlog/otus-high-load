@@ -53,6 +53,14 @@ websocket-test:
 build-websocket-client:
 	go build -o bin/websocket_client cmd/websocket_client/main.go
 
+# Запуск воркера материализации ленты
+feed-worker:
+	go run ./cmd/feed_worker/main.go
+
+# Сборка воркера материализации ленты
+build-feed-worker:
+	go build -o bin/feed_worker cmd/feed_worker/main.go
+
 #gen:
 #    oapi-codegen \
 #    - generate

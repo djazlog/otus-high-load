@@ -8,7 +8,11 @@ import (
 	internalApi "otus-project/internal/api"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
+	"otus-project/internal/interfaces"
 	"otus-project/internal/metric"
+	"otus-project/internal/model"
+	feedHandler "otus-project/internal/service/feed"
+	websocketHandler "otus-project/internal/service/websocket"
 	"otus-project/pkg/api"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,6 +24,7 @@ type App struct {
 	httpServer       *http.Server
 	prometheusServer *http.Server
 	websocketHandler *internalApi.WebSocketHandler
+	feedWorker       interfaces.FeedWorker
 }
 
 // NewApp создает новый экземпляр приложения
@@ -40,6 +45,10 @@ func (a *App) Run() error {
 		// Останавливаем WebSocket сервис
 		if a.serviceProvider != nil {
 			a.serviceProvider.WebSocketService().StopHub(context.Background())
+		}
+		// Останавливаем воркер материализации ленты
+		if a.feedWorker != nil {
+			a.feedWorker.StopWorker(context.Background())
 		}
 		closer.CloseAll()
 		closer.Wait()
@@ -69,6 +78,11 @@ func (a *App) initDeps(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Запускаем воркер материализации ленты
+	if err := a.feedWorker.StartWorker(ctx); err != nil {
+		return err
 	}
 
 	return nil
@@ -109,6 +123,21 @@ func (a *App) initWebSocket(ctx context.Context) error {
 
 	// Создаем WebSocket обработчик
 	a.websocketHandler = internalApi.NewWebSocketHandler(a.serviceProvider.WebSocketService().GetHub())
+
+	// Инициализируем воркер материализации ленты
+	a.feedWorker = NewFeedWorkerAdapter(a.serviceProvider.FeedService(ctx))
+
+	// Подписываем обработчики на события
+	eventBus := a.serviceProvider.EventBus()
+
+	// WebSocket обработчик
+	wsEventHandler := websocketHandler.NewEventHandler(a.serviceProvider.WebSocketService())
+	eventBus.Subscribe(model.EventTypePostCreated, wsEventHandler.HandlePostCreated)
+
+	// Feed обработчик
+	feedEventHandler := feedHandler.NewEventHandler(a.serviceProvider.FeedService(ctx))
+	eventBus.Subscribe(model.EventTypePostCreated, feedEventHandler.HandlePostCreated)
+
 	return nil
 }
 
@@ -187,4 +216,9 @@ func (a *App) runPrometheus() error {
 	}
 
 	return nil
+}
+
+// GetServiceProvider возвращает сервис провайдер
+func (a *App) GetServiceProvider() *serviceProvider {
+	return a.serviceProvider
 }

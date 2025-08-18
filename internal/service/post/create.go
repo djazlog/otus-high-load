@@ -2,7 +2,9 @@ package post
 
 import (
 	"context"
+	"log"
 	"otus-project/internal/model"
+	"time"
 )
 
 // Create Создание поста
@@ -21,19 +23,19 @@ func (s *serv) Create(ctx context.Context, info *model.Post) (*string, error) {
 		return nil, err
 	}
 
-	// Отправляем уведомление через WebSocket
-	if s.websocketService != nil && id != nil && info.Text != nil && info.AuthorUserId != nil {
-		wsPost := &model.WebSocketPost{
+	// Публикуем событие создания поста
+	if s.eventBus != nil && id != nil && info.Text != nil && info.AuthorUserId != nil {
+		event := &model.PostCreatedEvent{
 			PostID:       *id,
-			PostText:     *info.Text,
 			AuthorUserID: *info.AuthorUserId,
+			PostText:     *info.Text,
+			CreatedAt:    time.Now(),
 		}
 
-		// Отправляем асинхронно, чтобы не блокировать создание поста
+		// Публикуем событие асинхронно, чтобы не блокировать создание поста
 		go func() {
-			if err := s.websocketService.BroadcastPost(context.Background(), wsPost); err != nil {
-				// Логируем ошибку, но не прерываем создание поста
-				// В продакшене здесь можно добавить метрики и алерты
+			if err := s.eventBus.PublishEvent(context.Background(), model.EventTypePostCreated, event); err != nil {
+				log.Printf("Error publishing post created event: %v", err)
 			}
 		}()
 	}

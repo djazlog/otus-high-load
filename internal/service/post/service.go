@@ -3,6 +3,7 @@ package post
 import (
 	"context"
 	"otus-project/internal/client/db"
+	"otus-project/internal/interfaces"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
 	"otus-project/internal/service"
@@ -12,9 +13,7 @@ type serv struct {
 	postPgRepository repository.PostRepository
 	postRRepository  repository.PostRepository
 	txManager        db.TxManager
-	websocketService interface {
-		BroadcastPost(ctx context.Context, post *model.WebSocketPost) error
-	}
+	eventBus         interfaces.EventBus
 }
 
 // PostService интерфейс сервиса постов
@@ -31,15 +30,13 @@ func NewService(
 	postPgRepository repository.PostRepository,
 	postRRepository repository.PostRepository,
 	txManager db.TxManager,
-	websocketService interface {
-		BroadcastPost(ctx context.Context, post *model.WebSocketPost) error
-	},
+	eventBus interfaces.EventBus,
 ) service.PostService {
 	return &serv{
 		postPgRepository: postPgRepository,
 		postRRepository:  postRRepository,
 		txManager:        txManager,
-		websocketService: websocketService,
+		eventBus:         eventBus,
 	}
 }
 
