@@ -22,6 +22,7 @@ import (
 type App struct {
 	serviceProvider  *serviceProvider
 	httpServer       *http.Server
+	websocketServer  *http.Server
 	prometheusServer *http.Server
 	websocketHandler *internalApi.WebSocketHandler
 	feedWorker       feedHandler.Worker
@@ -54,7 +55,27 @@ func (a *App) Run() error {
 		closer.Wait()
 	}()
 
-	return a.runHTTPServer()
+	// Запускаем HTTP и WebSocket серверы параллельно
+	errChan := make(chan error, 2)
+
+	// Запускаем HTTP сервер
+	go func() {
+		log.Printf("HTTP server starting on %s", a.serviceProvider.HTTPConfig().Address())
+		if err := a.runHTTPServer(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Запускаем WebSocket сервер
+	go func() {
+		log.Printf("WebSocket server starting on %s", a.serviceProvider.WebSocketConfig().Address())
+		if err := a.runWebSocketServer(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Ждем ошибку от любого из серверов
+	return <-errChan
 }
 
 // RunPrometheus Run запускает приложение
@@ -69,6 +90,7 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initMetrics,
 		a.initServiceProvider,
 		a.initWebSocket,
+		a.initWebSocketServer,
 		a.initHTTPServer,
 		a.initPrometheus,
 	}
@@ -113,7 +135,7 @@ func (a *App) initServiceProvider(_ context.Context) error {
 	return nil
 }
 
-// initWebSocket инициализирует WebSocket сервис и обработчик
+// initWebSocket инициализирует WebSocket
 func (a *App) initWebSocket(ctx context.Context) error {
 	// Запускаем WebSocket хаб
 	err := a.serviceProvider.WebSocketService().StartHub(ctx)
@@ -124,7 +146,7 @@ func (a *App) initWebSocket(ctx context.Context) error {
 	// Создаем WebSocket обработчик
 	a.websocketHandler = internalApi.NewWebSocketHandler(a.serviceProvider.WebSocketService().GetHub())
 
-	// Инициализируем воркер материализации ленты
+	// Создаем воркер материализации ленты
 	a.feedWorker = NewFeedWorkerAdapter(a.serviceProvider.FeedService(ctx))
 
 	// Подписываем обработчики на события
@@ -137,6 +159,34 @@ func (a *App) initWebSocket(ctx context.Context) error {
 	// Feed обработчик
 	feedEventHandler := feedHandler.NewEventHandler(a.serviceProvider.FeedService(ctx))
 	eventBus.Subscribe(model.EventTypePostCreated, feedEventHandler.HandlePostCreated)
+
+	// Потребляем feed events из RabbitMQ и отправляем в конкретные WebSocket-соединения
+	if err := a.serviceProvider.QueueClient().ConsumeFeedEvents(ctx, func(ctx context.Context, userID string, ev *model.FeedEvent) error {
+		wsPost := &model.WebSocketPost{
+			PostID:       ev.PostID,
+			PostText:     ev.PostText,
+			AuthorUserID: ev.AuthorUserID,
+		}
+		return a.serviceProvider.WebSocketService().SendPostToUser(ctx, userID, wsPost)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// initWebSocketServer инициализирует WebSocket сервер
+func (a *App) initWebSocketServer(ctx context.Context) error {
+	// Создаем мультиплексор для WebSocket сервера
+	mux := http.NewServeMux()
+
+	// Добавляем WebSocket маршрут для канала /post/feed/posted
+	mux.HandleFunc("/post/feed/posted", a.websocketHandler.HandleWebSocket)
+
+	a.websocketServer = &http.Server{
+		Handler: mux,
+		Addr:    a.serviceProvider.WebSocketConfig().Address(),
+	}
 
 	return nil
 }
@@ -158,17 +208,9 @@ func (a *App) initHTTPServer(ctx context.Context) error {
 
 	h = mw(h)
 
-	// Создаем новый мультиплексор для объединения REST API и WebSocket
-	mux := http.NewServeMux()
-
-	// Добавляем REST API маршруты
-	mux.Handle("/", h)
-
-	// Добавляем WebSocket маршрут для канала /post/feed/posted
-	mux.HandleFunc("/post/feed/posted", a.websocketHandler.HandleWebSocket)
-
+	// HTTP сервер только для REST API
 	a.httpServer = &http.Server{
-		Handler: mux,
+		Handler: h,
 		Addr:    a.serviceProvider.HTTPConfig().Address(),
 	}
 
@@ -198,6 +240,21 @@ func (a *App) runHTTPServer() error {
 	}
 
 	err = a.httpServer.Serve(list)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// runWebSocketServer запускает WebSocket сервер
+func (a *App) runWebSocketServer() error {
+	list, err := net.Listen("tcp", a.serviceProvider.WebSocketConfig().Address())
+	if err != nil {
+		return err
+	}
+
+	err = a.websocketServer.Serve(list)
 	if err != nil {
 		return err
 	}

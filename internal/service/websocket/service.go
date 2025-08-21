@@ -18,4 +18,7 @@ type WebSocketService interface {
 
 	// GetHub возвращает WebSocket хаб
 	GetHub() *model.WebSocketHub
+
+	// SendPostToUser отправляет сообщение о новом посте конкретному пользователю
+	SendPostToUser(ctx context.Context, userID string, post *model.WebSocketPost) error
 }

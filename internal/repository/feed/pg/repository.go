@@ -194,11 +194,11 @@ func (r *repository) GetFriendsOfUser(ctx context.Context, userID string) ([]str
 	query := `
 		SELECT friend_id
 		FROM friends
-		WHERE user_id = $1 AND status = 'accepted'
+		WHERE user_id = $1 
 		UNION
 		SELECT user_id
 		FROM friends
-		WHERE friend_id = $1 AND status = 'accepted'
+		WHERE friend_id = $1
 	`
 
 	q := db.Query{

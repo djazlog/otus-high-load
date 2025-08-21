@@ -33,11 +33,11 @@ func (s *serv) Create(ctx context.Context, info *model.Post) (*string, error) {
 		}
 
 		// Публикуем событие асинхронно, чтобы не блокировать создание поста
-		go func() {
-			if err := s.eventBus.PublishEvent(context.Background(), model.EventTypePostCreated, event); err != nil {
-				log.Printf("Error publishing post created event: %v", err)
-			}
-		}()
+		//go func() {
+		if err := s.eventBus.PublishEvent(context.Background(), model.EventTypePostCreated, event); err != nil {
+			log.Printf("Error publishing post created event: %v", err)
+		}
+		//}()
 	}
 
 	return id, nil

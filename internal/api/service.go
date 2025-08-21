@@ -9,6 +9,7 @@ type Implementation struct {
 	postService   service.PostService
 	friendService service.FriendService
 	dialogService service.DialogService
+	feedService   service.FeedService
 }
 
 func NewImplementation(

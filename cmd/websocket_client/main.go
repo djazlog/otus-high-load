@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -25,14 +24,24 @@ type PostPayload struct {
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run main.go <server_url> <auth_token>")
-		fmt.Println("Example: go run main.go ws://localhost:8080 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+	// Парсим аргументы командной строки
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: websocket_client <server_url> [token]")
+		fmt.Println("Example: websocket_client ws://localhost:8090 <jwt_token>")
 		os.Exit(1)
 	}
 
 	serverURL := os.Args[1]
-	token := os.Args[2]
+	token := ""
+	if len(os.Args) >= 3 {
+		token = os.Args[2]
+	}
+
+	// Если токен не передан, запрашиваем его
+	if token == "" {
+		fmt.Print("Enter JWT token: ")
+		fmt.Scanln(&token)
+	}
 
 	// Создаем URL для WebSocket соединения
 	u, err := url.Parse(serverURL)
@@ -43,12 +52,13 @@ func main() {
 	// Добавляем путь для WebSocket канала
 	u.Path = "/post/feed/posted"
 
-	// Создаем заголовки с токеном авторизации
-	headers := http.Header{}
-	headers.Add("Authorization", "Bearer "+token)
+	// Добавляем токен в URL параметры
+	q := u.Query()
+	q.Set("token", token)
+	u.RawQuery = q.Encode()
 
 	// Подключаемся к WebSocket серверу
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), headers)
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("Error connecting to WebSocket:", err)
 	}
@@ -103,17 +113,15 @@ func main() {
 	case <-interrupt:
 		log.Println("Received interrupt signal, closing connection...")
 
-		// Отправляем сообщение о закрытии соединения
+		// Отправляем сообщение о закрытии
 		err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		if err != nil {
 			log.Printf("Error sending close message: %v", err)
 		}
 
-		// Ждем завершения горутины чтения
+		// Ждем завершения чтения
 		<-done
 	case <-done:
-		log.Println("Connection closed by server")
+		log.Println("Connection closed")
 	}
-
-	log.Println("WebSocket client stopped")
 }

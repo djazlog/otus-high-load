@@ -35,9 +35,10 @@ import (
 )
 
 type serviceProvider struct {
-	pgConfig    config.PGConfig
-	httpConfig  config.HTTPConfig
-	redisConfig config.RedisConfig
+	pgConfig        config.PGConfig
+	httpConfig      config.HTTPConfig
+	websocketConfig config.WebSocketConfig
+	redisConfig     config.RedisConfig
 
 	dbClient  db.Client
 	txManager db.TxManager
@@ -94,6 +95,20 @@ func (s *serviceProvider) HTTPConfig() config.HTTPConfig {
 	}
 
 	return s.httpConfig
+}
+
+// WebSocketConfig возвращает конфиг WebSocket
+func (s *serviceProvider) WebSocketConfig() config.WebSocketConfig {
+	if s.websocketConfig == nil {
+		cfg, err := config.NewWebSocketConfig()
+		if err != nil {
+			log.Fatalf("failed to get websocket config: %s", err.Error())
+		}
+
+		s.websocketConfig = cfg
+	}
+
+	return s.websocketConfig
 }
 
 // RedisConfig возвращает конфиг redis

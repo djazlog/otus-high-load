@@ -58,6 +58,31 @@ func (s *service) GetHub() *model.WebSocketHub {
 	return s.hub
 }
 
+// SendPostToUser отправляет сообщение о новом посте конкретному пользователю
+func (s *service) SendPostToUser(ctx context.Context, userID string, post *model.WebSocketPost) error {
+	message := model.WebSocketMessage{
+		Type:    "post",
+		Payload: post,
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if conn, ok := s.hub.Connections[userID]; ok {
+		select {
+		case conn.Send <- messageBytes:
+		default:
+			close(conn.Send)
+			delete(s.hub.Connections, conn.ID)
+		}
+	}
+	return nil
+}
+
 // runHub запускает основной цикл хаба
 func (s *service) runHub() {
 	for {

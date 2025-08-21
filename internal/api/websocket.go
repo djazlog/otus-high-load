@@ -31,20 +31,22 @@ func NewWebSocketHandler(hub *model.WebSocketHub) *WebSocketHandler {
 
 // HandleWebSocket обрабатывает WebSocket соединение для канала /post/feed/posted
 func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Извлекаем токен из заголовка Authorization
+	var token string
+
+	// Сначала пытаемся получить токен из заголовка Authorization
 	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		http.Error(w, "Authorization header required", http.StatusUnauthorized)
-		return
+	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		token = strings.TrimPrefix(authHeader, "Bearer ")
+	} else {
+		// Если нет заголовка, пытаемся получить токен из URL параметров
+		token = r.URL.Query().Get("token")
 	}
 
-	// Проверяем формат Bearer token
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+	// Проверяем, что токен получен
+	if token == "" {
+		http.Error(w, "Token required (Authorization header or URL parameter)", http.StatusUnauthorized)
 		return
 	}
-
-	token := strings.TrimPrefix(authHeader, "Bearer ")
 
 	// Валидируем токен и получаем userID
 	claims, err := utils.VerifyToken(token)

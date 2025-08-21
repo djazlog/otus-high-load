@@ -77,12 +77,12 @@
 </head>
 <body>
     <h1>WebSocket Test Client</h1>
-    
+
     <div class="container">
         <h3>Подключение</h3>
-        <div>
+        <div class="form-group">
             <label for="serverUrl">Server URL:</label>
-            <input type="text" id="serverUrl" value="ws://localhost:8080" style="width: 300px;">
+            <input type="text" id="serverUrl" value="ws://localhost:8090" placeholder="ws://localhost:8090">
         </div>
         <div>
             <label for="token">JWT Token:</label>
@@ -115,10 +115,10 @@
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message' + (isPost ? ' post-message' : '');
-            
+
             const timestamp = new Date().toLocaleTimeString();
             messageDiv.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
-            
+
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             messageCount++;
@@ -136,17 +136,15 @@
             updateStatus('Подключение...', 'connecting');
 
             try {
-                // Создаем WebSocket соединение
-                ws = new WebSocket(serverUrl + '/post/feed/posted');
+                // Создаем WebSocket соединение с токеном в URL параметрах
+                const wsUrl = serverUrl + '/post/feed/posted?token=' + encodeURIComponent(token);
+                ws = new WebSocket(wsUrl);
 
                 ws.onopen = function(event) {
                     updateStatus('Подключен', 'connected');
                     document.getElementById('connectBtn').disabled = true;
                     document.getElementById('disconnectBtn').disabled = false;
                     addMessage('WebSocket соединение установлено');
-                    
-                    // Отправляем токен в заголовке (если поддерживается)
-                    // В реальном приложении токен должен передаваться через URL параметры
                     addMessage('Токен авторизации: ' + token.substring(0, 20) + '...');
                 };
 
@@ -154,7 +152,7 @@
                     try {
                         const message = JSON.parse(event.data);
                         addMessage('Получено сообщение: ' + JSON.stringify(message, null, 2));
-                        
+
                         if (message.type === 'post') {
                             const post = message.payload;
                             addMessage(`Новый пост! ID: ${post.postId}, Автор: ${post.author_user_id}, Текст: ${post.postText}`, true);
@@ -168,7 +166,7 @@
                     updateStatus('Отключен', 'disconnected');
                     document.getElementById('connectBtn').disabled = false;
                     document.getElementById('disconnectBtn').disabled = true;
-                    
+
                     if (event.wasClean) {
                         addMessage('Соединение закрыто корректно');
                     } else {

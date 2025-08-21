@@ -7,6 +7,7 @@ import (
 	"log"
 	"otus-project/internal/config"
 	"otus-project/internal/model"
+	"strings"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -18,6 +19,7 @@ const (
 
 	// Queue names
 	FeedMaterializationQueue = "feed.materialization"
+	FeedWebsocketQueuePrefix = "feed.websocket."
 
 	// Routing key patterns
 	FeedEventRoutingKey = "feed.event.%s" // feed.event.{user_id}
@@ -88,17 +90,8 @@ func (c *Client) setupExchangeAndQueues() error {
 		return fmt.Errorf("failed to declare queue: %w", err)
 	}
 
-	// Привязываем очередь к exchange с routing key для всех пользователей
-	err = c.channel.QueueBind(
-		FeedMaterializationQueue, // queue name
-		"feed.event.*",           // routing key
-		FeedEventsExchange,       // exchange
-		false,                    // no-wait
-		nil,                      // arguments
-	)
-	if err != nil {
-		return fmt.Errorf("failed to bind queue: %w", err)
-	}
+	// НЕ привязываем очередь материализации к exchange, так как задачи публикуются в default exchange
+	// Очередь материализации работает независимо от feed.events exchange
 
 	return nil
 }
@@ -137,11 +130,18 @@ func (c *Client) PublishFeedEvent(ctx context.Context, userID string, event *mod
 
 // PublishFeedUpdateTask публикует задачу обновления ленты
 func (c *Client) PublishFeedUpdateTask(ctx context.Context, task *model.FeedUpdateTask) error {
+	log.Printf("DEBUG: Publishing task - UserID: '%s', PostID: '%s'", task.UserID, task.PostID)
+
 	// Сериализуем задачу
 	body, err := json.Marshal(task)
 	if err != nil {
 		return fmt.Errorf("failed to marshal task: %w", err)
 	}
+
+	log.Printf("DEBUG: Serialized task JSON: %s", string(body))
+
+	// Создаем уникальный ID сообщения для предотвращения дубликатов
+	messageID := fmt.Sprintf("%s:%s:%d", task.UserID, task.PostID, time.Now().UnixNano())
 
 	// Публикуем сообщение в очередь материализации
 	err = c.channel.PublishWithContext(ctx,
@@ -155,13 +155,14 @@ func (c *Client) PublishFeedUpdateTask(ctx context.Context, task *model.FeedUpda
 			DeliveryMode: amqp.Persistent,
 			Timestamp:    time.Now(),
 			Priority:     uint8(task.Priority),
+			MessageId:    messageID,
 		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to publish task: %w", err)
 	}
 
-	log.Printf("Published feed update task for user %s: %s", task.UserID, task.PostID)
+	log.Printf("Published feed update task for user %s: %s (message ID: %s)", task.UserID, task.PostID, messageID)
 	return nil
 }
 
@@ -186,10 +187,22 @@ func (c *Client) ConsumeFeedMaterializationTasks(ctx context.Context, handler fu
 			case <-ctx.Done():
 				return
 			case msg := <-msgs:
+				log.Printf("DEBUG: Received message from queue, delivery tag: %d, message ID: %s", msg.DeliveryTag, msg.MessageId)
+
 				var task model.FeedUpdateTask
 				if err := json.Unmarshal(msg.Body, &task); err != nil {
 					log.Printf("Error unmarshaling task: %v", err)
+					log.Printf("DEBUG: Raw message body: %s", string(msg.Body))
 					msg.Nack(false, false)
+					continue
+				}
+
+				log.Printf("DEBUG: Unmarshaled task - UserID: '%s', PostID: '%s', Priority: %d", task.UserID, task.PostID, task.Priority)
+
+				// Проверяем валидность задачи перед обработкой
+				if task.UserID == "" || task.PostID == "" {
+					log.Printf("ERROR: Invalid task received - UserID: '%s', PostID: '%s', rejecting message", task.UserID, task.PostID)
+					msg.Nack(false, false) // Не переотправляем невалидные сообщения
 					continue
 				}
 
@@ -197,12 +210,65 @@ func (c *Client) ConsumeFeedMaterializationTasks(ctx context.Context, handler fu
 					log.Printf("Error processing task: %v", err)
 					msg.Nack(false, true) // requeue
 				} else {
+					log.Printf("DEBUG: Successfully processed task, acknowledging message (ID: %s)", msg.MessageId)
 					msg.Ack(false)
 				}
 			}
 		}
 	}()
 
+	return nil
+}
+
+// ConsumeFeedEvents потребляет события ленты и передает userID из routing key
+func (c *Client) ConsumeFeedEvents(ctx context.Context, handler func(context.Context, string, *model.FeedEvent) error) error {
+	// Объявляем временную очередь для этого потребителя
+	q, err := c.channel.QueueDeclare(
+		"",    // name - server-named
+		true,  // durable
+		true,  // auto-delete
+		true,  // exclusive
+		false, // no-wait
+		nil,   // args
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare ws queue: %w", err)
+	}
+
+	// Подписка на все feed.event.*
+	if err := c.channel.QueueBind(q.Name, "feed.event.*", FeedEventsExchange, false, nil); err != nil {
+		return fmt.Errorf("failed to bind ws queue: %w", err)
+	}
+
+	msgs, err := c.channel.Consume(q.Name, "", true, true, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start consuming ws events: %w", err)
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-msgs:
+				var ev model.FeedEvent
+				if err := json.Unmarshal(msg.Body, &ev); err != nil {
+					log.Printf("Error unmarshaling feed event: %v", err)
+					continue
+				}
+				// routing key вида feed.event.{user_id}
+				rk := msg.RoutingKey
+				parts := strings.Split(rk, ".")
+				if len(parts) < 3 {
+					continue
+				}
+				userID := parts[2]
+				if err := handler(ctx, userID, &ev); err != nil {
+					log.Printf("Error handling ws event for user %s: %v", userID, err)
+				}
+			}
+		}
+	}()
 	return nil
 }
 

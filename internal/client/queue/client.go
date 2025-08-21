@@ -16,6 +16,9 @@ type Client interface {
 	// ConsumeFeedMaterializationTasks потребляет задачи материализации ленты
 	ConsumeFeedMaterializationTasks(ctx context.Context, handler func(context.Context, *model.FeedUpdateTask) error) error
 
+	// ConsumeFeedEvents потребляет события ленты по routing key feed.event.{user_id}
+	ConsumeFeedEvents(ctx context.Context, handler func(context.Context, string, *model.FeedEvent) error) error
+
 	// Close закрывает соединение
 	Close() error
 }
