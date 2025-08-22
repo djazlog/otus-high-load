@@ -7,6 +7,7 @@ import (
 	"otus-project/internal/repository"
 	"otus-project/internal/repository/post/pg/converter"
 	modelRepo "otus-project/internal/repository/post/pg/model"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/gofrs/uuid"
@@ -33,6 +34,7 @@ func NewRepository(db db.Client) repository.PostRepository {
 	return &repo{db: db}
 }
 
+// Create создает пост
 func (r *repo) Create(ctx context.Context, post *model.Post) (*string, error) {
 	uid, err := uuid.NewV4()
 	if err != nil {
@@ -40,8 +42,8 @@ func (r *repo) Create(ctx context.Context, post *model.Post) (*string, error) {
 	}
 	builder := sq.Insert(tableName).
 		PlaceholderFormat(sq.Dollar).
-		Columns(idColumn, textColumn, authorUserIdColumn).
-		Values(uid, post.Text, post.AuthorUserId).
+		Columns(idColumn, textColumn, authorUserIdColumn, createdAtColumn).
+		Values(uid, post.Text, post.AuthorUserId, time.Now()).
 		Suffix("RETURNING id")
 
 	query, args, err := builder.ToSql()

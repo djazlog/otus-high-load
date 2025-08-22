@@ -9,7 +9,7 @@ build:
 
 # Запуск сервиса
 up:
-	@docker compose up -d --build --scale worker=7
+	@docker compose up -d --build --scale worker=2
 
 # Запуск сервиса для разработки
 run:
@@ -40,6 +40,29 @@ import:
 # Генерация постов для тестирования
 posts:
 	go run ./cmd/feel_posts/main.go
+
+# WebSocket тестирование
+websocket-test:
+	@echo "Для тестирования WebSocket используйте:"
+	@echo "1. HTML клиент: открыть docs/websocket_test.html в браузере"
+	@echo "2. Go клиент: go run cmd/websocket_client/main.go ws://localhost:8090 <jwt_token>"
+	@echo ""
+	@echo "Сначала получите JWT токен через REST API /login"
+	@echo "REST API доступен на: http://localhost:8089"
+	@echo "WebSocket сервер на: ws://localhost:8090"
+
+# Сборка WebSocket клиента
+build-websocket-client:
+	go build -o bin/websocket_client cmd/websocket_client/main.go
+
+# Запуск воркера материализации ленты
+feed-worker:
+	go run ./cmd/feed_worker/main.go
+
+# Сборка воркера материализации ленты
+build-feed-worker:
+	go build -o bin/feed_worker cmd/feed_worker/main.go
+
 #gen:
 #    oapi-codegen \
 #    - generate

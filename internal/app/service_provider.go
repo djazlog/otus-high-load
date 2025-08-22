@@ -10,27 +10,35 @@ import (
 	"otus-project/internal/client/db"
 	"otus-project/internal/client/db/pg"
 	"otus-project/internal/client/db/transaction"
+	"otus-project/internal/client/queue"
+	"otus-project/internal/client/queue/rabbitmq"
 	"otus-project/internal/closer"
 	"otus-project/internal/config"
 	"otus-project/internal/repository"
 	dialogRepo "otus-project/internal/repository/dialog"
+	feedRepo "otus-project/internal/repository/feed"
+	feedPgRepo "otus-project/internal/repository/feed/pg"
 	friendRepo "otus-project/internal/repository/friend"
 	postPgRepo "otus-project/internal/repository/post/pg"
 	postRRepo "otus-project/internal/repository/post/redis"
 	userRepository "otus-project/internal/repository/user"
 	"otus-project/internal/service"
 	dialogService "otus-project/internal/service/dialog"
+	eventBusService "otus-project/internal/service/event_bus"
+	feedService "otus-project/internal/service/feed"
 	friendService "otus-project/internal/service/friend"
 	postService "otus-project/internal/service/post"
 	userService "otus-project/internal/service/user"
+	websocketService "otus-project/internal/service/websocket"
 
 	redigo "github.com/gomodule/redigo/redis"
 )
 
 type serviceProvider struct {
-	pgConfig    config.PGConfig
-	httpConfig  config.HTTPConfig
-	redisConfig config.RedisConfig
+	pgConfig        config.PGConfig
+	httpConfig      config.HTTPConfig
+	websocketConfig config.WebSocketConfig
+	redisConfig     config.RedisConfig
 
 	dbClient  db.Client
 	txManager db.TxManager
@@ -44,10 +52,14 @@ type serviceProvider struct {
 	friendRepository    repository.FriendRepository
 	dialogRepository    repository.DialogRepository
 
-	userService   service.UserService
-	postService   service.PostService
-	friendService service.FriendService
-	dialogService service.DialogService
+	userService      service.UserService
+	postService      service.PostService
+	friendService    service.FriendService
+	dialogService    service.DialogService
+	websocketService websocketService.WebSocketService
+	feedService      feedService.Service
+	queueClient      queue.Client
+	eventBus         eventBusService.EventBus
 
 	apiImpl *api.Implementation
 }
@@ -83,6 +95,20 @@ func (s *serviceProvider) HTTPConfig() config.HTTPConfig {
 	}
 
 	return s.httpConfig
+}
+
+// WebSocketConfig возвращает конфиг WebSocket
+func (s *serviceProvider) WebSocketConfig() config.WebSocketConfig {
+	if s.websocketConfig == nil {
+		cfg, err := config.NewWebSocketConfig()
+		if err != nil {
+			log.Fatalf("failed to get websocket config: %s", err.Error())
+		}
+
+		s.websocketConfig = cfg
+	}
+
+	return s.websocketConfig
 }
 
 // RedisConfig возвращает конфиг redis
@@ -216,6 +242,7 @@ func (s *serviceProvider) PostService(ctx context.Context) service.PostService {
 			s.PostRepository(ctx),
 			s.PostRedisRepository(ctx),
 			s.TxManager(ctx),
+			s.EventBus(),
 		)
 	}
 
@@ -241,6 +268,58 @@ func (s *serviceProvider) DialogService(ctx context.Context) service.DialogServi
 	}
 
 	return s.dialogService
+}
+
+// WebSocketService возвращает WebSocket сервис
+func (s *serviceProvider) WebSocketService() websocketService.WebSocketService {
+	if s.websocketService == nil {
+		s.websocketService = websocketService.NewService()
+	}
+
+	return s.websocketService
+}
+
+// QueueClient возвращает клиент очереди сообщений
+func (s *serviceProvider) QueueClient() queue.Client {
+	if s.queueClient == nil {
+		cfg, err := config.NewRabbitMQConfig()
+		if err != nil {
+			log.Fatalf("failed to get rabbitmq config: %s", err.Error())
+		}
+
+		client, err := rabbitmq.NewClient(cfg)
+		if err != nil {
+			log.Fatalf("failed to create queue client: %s", err.Error())
+		}
+
+		s.queueClient = client
+		closer.Add(client.Close)
+	}
+
+	return s.queueClient
+}
+
+// FeedRepository возвращает репозиторий материализованной ленты
+func (s *serviceProvider) FeedRepository(ctx context.Context) feedRepo.Repository {
+	return feedPgRepo.NewRepository(s.DBClient(ctx))
+}
+
+// EventBus возвращает Event Bus
+func (s *serviceProvider) EventBus() eventBusService.EventBus {
+	if s.eventBus == nil {
+		s.eventBus = eventBusService.NewService()
+	}
+
+	return s.eventBus
+}
+
+// FeedService возвращает сервис отложенной материализации ленты
+func (s *serviceProvider) FeedService(ctx context.Context) feedService.Service {
+	if s.feedService == nil {
+		s.feedService = feedService.NewService(s.FeedRepository(ctx), s.QueueClient())
+	}
+
+	return s.feedService
 }
 
 // ApiImpl возвращает реализацию сервиса User

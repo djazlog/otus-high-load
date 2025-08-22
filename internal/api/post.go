@@ -229,20 +229,35 @@ func (i *Implementation) GetPostFeed(w http.ResponseWriter, r *http.Request, par
 		return
 	}
 
-	postsObj, err := i.postService.Feed(r.Context(), *userId, params.Offset, params.Limit)
+	// Convert *float32 Offset and Limit to int, defaulting to 0 if nil
+	var offset, limit int
+	if params.Offset != nil {
+		offset = int(*params.Offset)
+	}
+	if params.Limit != nil {
+		limit = int(*params.Limit)
+	}
 
+	//postsObj, err := i.postService.Feed(r.Context(), *userId, params.Offset, params.Limit)
+	postsObj, err := i.feedService.GetMaterializedFeed(r.Context(), *userId, offset, limit)
 	if err != nil {
-
 		http.Error(w, "Post not found", http.StatusNotFound)
 		return
 	}
 
+	// Преобразуем postsObj из []*MaterializedFeed в []*Post перед передачей в ToPostsFromService
+	posts := make([]*model.Post, 0, len(postsObj))
+	for _, mf := range postsObj {
+		post := converter.MaterializedFeedToPost(mf)
+		posts = append(posts, post)
+	}
+
 	w.WriteHeader(http.StatusOK)
-	response := converter.ToPostsFromService(postsObj)
-	// Отправляем объект userObj в формате JSON
+	response := converter.ToPostsFromService(posts)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
+	
 
 }

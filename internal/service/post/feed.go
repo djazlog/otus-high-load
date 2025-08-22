@@ -10,6 +10,7 @@ import (
 // Feed Получить ленту постов
 func (s *serv) Feed(ctx context.Context, id string, offset *float32, limit *float32) ([]*model.Post, error) {
 	// Смотрим посты в редисе
+	//posts, err := s.postRRepository.Feed(ctx, id, offset, limit)
 	posts, err := s.postRRepository.Feed(ctx, id, offset, limit)
 	if err != nil {
 		fmt.Println(err)
