@@ -258,6 +258,5 @@ func (i *Implementation) GetPostFeed(w http.ResponseWriter, r *http.Request, par
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
-	
 
 }

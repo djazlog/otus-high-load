@@ -2,11 +2,12 @@ package redis
 
 import (
 	"context"
-	"github.com/gomodule/redigo/redis"
 	"log"
 	"otus-project/internal/client/cache"
 	"otus-project/internal/config"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 var _ cache.RedisClient = (*client)(nil)
@@ -125,6 +126,72 @@ func (c *client) Ping(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *client) LPush(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	err := c.execute(ctx, func(ctx context.Context, conn redis.Conn) error {
+		// Добавляем элемент в начало списка
+		_, err := conn.Do("LPUSH", key, value)
+		if err != nil {
+			return err
+		}
+
+		// Устанавливаем TTL для ключа
+		_, err = conn.Do("EXPIRE", key, int(ttl.Seconds()))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *client) LRange(ctx context.Context, key string, start, stop int) ([]interface{}, error) {
+	var values []interface{}
+	err := c.execute(ctx, func(ctx context.Context, conn redis.Conn) error {
+		var errEx error
+		values, errEx = redis.Values(conn.Do("LRANGE", key, start, stop))
+		if errEx != nil {
+			return errEx
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return values, nil
+}
+
+func (c *client) Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error) {
+	var result interface{}
+	err := c.execute(ctx, func(ctx context.Context, conn redis.Conn) error {
+		// Подготавливаем аргументы для EVAL
+		evalArgs := redis.Args{script, len(keys)}
+		for _, key := range keys {
+			evalArgs = evalArgs.Add(key)
+		}
+		evalArgs = evalArgs.Add(args...)
+
+		var errEx error
+		result, errEx = conn.Do("EVAL", evalArgs...)
+		if errEx != nil {
+			return errEx
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (c *client) execute(ctx context.Context, handler handler) error {

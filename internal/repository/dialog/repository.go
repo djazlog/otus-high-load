@@ -2,6 +2,7 @@ package dialog
 
 import (
 	"context"
+	"fmt"
 	"otus-project/internal/client/db"
 	"otus-project/internal/model"
 	"otus-project/internal/repository"
@@ -104,4 +105,16 @@ func (r *repo) GetDialogList(ctx context.Context, userId1, userId2 string) ([]*m
 
 	// Конвертируем в сервисные модели
 	return converter.ToDialogMessagesFromRepo(messages), nil
+}
+
+// GetDialogCount возвращает общее количество диалогов (только для Redis)
+func (r *repo) GetDialogCount(ctx context.Context) (int64, error) {
+	// В PostgreSQL репозитории этот метод не реализован
+	return 0, fmt.Errorf("GetDialogCount not implemented in PostgreSQL repository")
+}
+
+// GetDialogStats возвращает статистику диалогов (только для Redis)
+func (r *repo) GetDialogStats(ctx context.Context) (totalDialogs, activeDialogs int64, err error) {
+	// В PostgreSQL репозитории этот метод не реализован
+	return 0, 0, fmt.Errorf("GetDialogStats not implemented in PostgreSQL repository")
 }

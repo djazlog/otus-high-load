@@ -17,11 +17,13 @@ func NewImplementation(
 	postService service.PostService,
 	friendService service.FriendService,
 	dialogService service.DialogService,
+	feedService service.FeedService,
 ) *Implementation {
 	return &Implementation{
 		userService:   userService,
 		postService:   postService,
 		friendService: friendService,
 		dialogService: dialogService,
+		feedService:   feedService,
 	}
 }
