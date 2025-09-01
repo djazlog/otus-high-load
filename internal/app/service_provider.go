@@ -16,6 +16,7 @@ import (
 	"otus-project/internal/config"
 	"otus-project/internal/repository"
 	dialogRepo "otus-project/internal/repository/dialog"
+	dialogRedisRepo "otus-project/internal/repository/dialog/redis"
 	feedRepo "otus-project/internal/repository/feed"
 	feedPgRepo "otus-project/internal/repository/feed/pg"
 	friendRepo "otus-project/internal/repository/friend"
@@ -39,6 +40,7 @@ type serviceProvider struct {
 	httpConfig      config.HTTPConfig
 	websocketConfig config.WebSocketConfig
 	redisConfig     config.RedisConfig
+	dialogConfig    config.DialogConfig
 
 	dbClient  db.Client
 	txManager db.TxManager
@@ -46,11 +48,12 @@ type serviceProvider struct {
 	redisPool   *redigo.Pool
 	redisClient cache.RedisClient
 
-	userRepository      repository.UserRepository
-	postPgRepository    repository.PostRepository
-	postRedisRepository repository.PostRepository
-	friendRepository    repository.FriendRepository
-	dialogRepository    repository.DialogRepository
+	userRepository        repository.UserRepository
+	postPgRepository      repository.PostRepository
+	postRedisRepository   repository.PostRepository
+	friendRepository      repository.FriendRepository
+	dialogPgRepository    repository.DialogRepository
+	dialogRedisRepository repository.DialogRepository
 
 	userService      service.UserService
 	postService      service.PostService
@@ -123,6 +126,20 @@ func (s *serviceProvider) RedisConfig() config.RedisConfig {
 	}
 
 	return s.redisConfig
+}
+
+// DialogConfig возвращает конфиг диалогов
+func (s *serviceProvider) DialogConfig() config.DialogConfig {
+	if s.dialogConfig == nil {
+		cfg, err := config.NewDialogConfig()
+		if err != nil {
+			log.Fatalf("failed to get dialog config: %s", err.Error())
+		}
+
+		s.dialogConfig = cfg
+	}
+
+	return s.dialogConfig
 }
 
 // RedisPool возвращает пул соединений к redis
@@ -214,13 +231,33 @@ func (s *serviceProvider) FriendRepository(ctx context.Context) repository.Frien
 	return s.friendRepository
 }
 
-// DialogRepository возвращает репозиторий диалогов
-func (s *serviceProvider) DialogRepository(ctx context.Context) repository.DialogRepository {
-	if s.dialogRepository == nil {
-		s.dialogRepository = dialogRepo.NewRepository(s.DBClient(ctx))
+// DialogPgRepository возвращает PostgreSQL репозиторий диалогов
+func (s *serviceProvider) DialogPgRepository(ctx context.Context) repository.DialogRepository {
+	if s.dialogPgRepository == nil {
+		s.dialogPgRepository = dialogRepo.NewRepository(s.DBClient(ctx))
 	}
 
-	return s.dialogRepository
+	return s.dialogPgRepository
+}
+
+// DialogRedisRepository возвращает Redis репозиторий диалогов
+func (s *serviceProvider) DialogRedisRepository(ctx context.Context) repository.DialogRepository {
+	if s.dialogRedisRepository == nil {
+		s.dialogRedisRepository = dialogRedisRepo.NewRepository(s.RedisClient())
+	}
+
+	return s.dialogRedisRepository
+}
+
+// DialogRepository возвращает репозиторий диалогов в зависимости от конфигурации
+func (s *serviceProvider) DialogRepository(ctx context.Context) repository.DialogRepository {
+	storageType := s.DialogConfig().StorageType()
+
+	if storageType == "redis" {
+		return s.DialogRedisRepository(ctx)
+	}
+
+	return s.DialogPgRepository(ctx)
 }
 
 // UserService возвращает сервис User
@@ -264,7 +301,7 @@ func (s *serviceProvider) FriendService(ctx context.Context) service.FriendServi
 // DialogService возвращает сервис диалогов
 func (s *serviceProvider) DialogService(ctx context.Context) service.DialogService {
 	if s.dialogService == nil {
-		s.dialogService = dialogService.NewImplementation(s.DialogRepository(ctx))
+		s.dialogService = dialogService.NewImplementation(s.DialogPgRepository(ctx), s.DialogRedisRepository(ctx))
 	}
 
 	return s.dialogService
@@ -325,7 +362,7 @@ func (s *serviceProvider) FeedService(ctx context.Context) feedService.Service {
 // ApiImpl возвращает реализацию сервиса User
 func (s *serviceProvider) ApiImpl(ctx context.Context) *api.Implementation {
 	if s.apiImpl == nil {
-		s.apiImpl = api.NewImplementation(s.UserService(ctx), s.PostService(ctx), s.FriendService(ctx), s.DialogService(ctx))
+		s.apiImpl = api.NewImplementation(s.UserService(ctx), s.PostService(ctx), s.FriendService(ctx), s.DialogService(ctx), s.FeedService(ctx))
 	}
 
 	return s.apiImpl

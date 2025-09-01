@@ -12,4 +12,7 @@ type RedisClient interface {
 	Get(ctx context.Context, key string) (interface{}, error)
 	Expire(ctx context.Context, key string, expiration time.Duration) error
 	Ping(ctx context.Context) error
+	LPush(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	LRange(ctx context.Context, key string, start, stop int) ([]interface{}, error)
+	Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error)
 }
